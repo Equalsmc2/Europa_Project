@@ -1,40 +1,35 @@
 document.addEventListener("DOMContentLoaded", () => {
   // ==========================================
-  // THREE.JS - COLORED ASCII / DOT MATRIX GLB
+  // THREE.JS - COLORED DOT MATRIX GLB (SIDE PANEL)
   // ==========================================
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
     if (!container) return;
     
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 6;
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.z = 5.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
     const loader = new THREE.GLTFLoader();
     
-    // Load the 3D model
     loader.load('europa.glb', (gltf) => {
       gltf.scene.traverse((child) => {
         if (child.isMesh) {
           const geometry = child.geometry;
           
-          // Render as a Point Cloud (Dot Matrix)
+          // Render as a colored point cloud matching model data if available
+          const hasColors = geometry.hasAttribute('color');
           const material = new THREE.PointsMaterial({
-            size: 0.04, 
-            color: 0xccff00, // striking cyber-chartreuse
-            transparent: true,
-            opacity: 0.8,
-            // If your GLB has vertex colors baked in, uncomment the next line:
-            // vertexColors: child.geometry.hasAttribute('color')
+            size: 0.045, 
+            vertexColors: hasColors,
+            color: hasColors ? 0xffffff : 0xccff00 // Falls back to matching chartreuse theme color if uncolored
           });
           
           const points = new THREE.Points(geometry, material);
-          
-          // Center the geometry
           geometry.computeBoundingBox();
           const center = geometry.boundingBox.getCenter(new THREE.Vector3());
           points.position.sub(center);
@@ -43,21 +38,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }, undefined, (error) => {
-      console.warn("Europa.glb not found or failed to load. Ensure the file is in the root directory.");
+      console.warn("Europa.glb not found in root directory.");
     });
 
     const animate = () => {
       requestAnimationFrame(animate);
-      scene.rotation.y += 0.002;
+      scene.rotation.y += 0.003;
       scene.rotation.x += 0.001;
       renderer.render(scene, camera);
     };
     animate();
 
     window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      if (!container) return;
+      camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(container.clientWidth, container.clientHeight);
     });
   };
 
@@ -105,13 +101,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSwQ-TwcTKEQ_Zedbz0",
-    authDomain: "europa-4b0d3.firebaseapp.com",
-    projectId: "europa-4b0d3",
-    storageBucket: "europa-4b0d3.firebasestorage.app",
-    messagingSenderId: "587142063782",
-    appId: "1:587142063782:web:d25fed404260f6f265f667",
-    measurementId: "G-MH1VL587NH"
+    apiKey: "YOUR_API_KEY",
+    projectId: "europa-4b0d3"
   };
   
   if (!firebase.apps.length) firebase.initializeApp(config);
