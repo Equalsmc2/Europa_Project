@@ -1,0 +1,18 @@
+// src/App.tsx
+import Droplets from "@/components/canvasui/Droplets";
+
+function App() {
+  return (
+    <div className="relative h-screen w-full">
+      {/* Your regular HTML content */}
+      <h1 className="z-10 absolute top-10 left-10 text-4xl">Hello Canvas UI</h1>
+      
+      {/* The Canvas UI effect */}
+      <div className="absolute inset-0 z-0">
+        <Droplets />
+      </div>
+    </div>
+  );
+}
+
+export default App;
