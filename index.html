@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   
-  <!-- Correct root-level CSS link -->
   <link rel="stylesheet" href="europa.css"/>
 
   <!-- Three.js for the Dot Matrix GLB -->
@@ -18,47 +17,57 @@
 </head>
 <body>
   
-  <!-- The 3D Dot Matrix Render Target -->
-  <div id="europa-3d"></div>
-  <div id="ambient-glow"></div>
-
   <div id="main-interface">
-    <div id="terminal-wrapper">
-      <header>
-        <div class="brand">
-          <h2>EUROPA PROJECT</h2>
-          <small>NHP OMNINET LINK // LANCER SYSTEM</small>
+    <!-- Left Column: Terminal & Comms -->
+    <div id="left-stack">
+      <div id="terminal-wrapper">
+        <header>
+          <div class="brand">
+            <h2>EUROPA PROJECT</h2>
+            <small>NHP OMNINET LINK // LANCER SYSTEM</small>
+          </div>
+          <div id="system-clock">--:--:--</div>
+          <button id="tools-toggle">DEPLOY TOOLS</button>
+        </header>
+        
+        <div id="terminal-housing">
+          <div id="terminal">
+            <div class="line system">Establishing secure Omninet connection...</div>
+            <div class="line system">Initializing dark-matrix terminal interface...</div>
+          </div>
         </div>
-        <div id="system-clock">--:--:--</div>
-        <button id="tools-toggle">DEPLOY TOOLS</button>
-      </header>
-      
-      <div id="terminal-housing">
-        <div id="terminal">
-          <div class="line system">Establishing secure Omninet connection...</div>
-          <div class="line system">Rendering Europa conceptual construct...</div>
+        
+        <div class="input-line">
+          <span class="prompt">NHP></span>
+          <input id="cli" type="text" autocomplete="off" placeholder="INPUT COMMAND..." autofocus />
         </div>
       </div>
-      
-      <div class="input-line">
-        <span class="prompt">NHP></span>
-        <input id="cli" type="text" autocomplete="off" placeholder="INPUT COMMAND..." autofocus />
+
+      <div id="chat-wrapper">
+        <header>
+          <h3>PILOT COMMS</h3>
+          <span class="status-pulse"></span>
+        </header>
+        <div id="chat-messages"></div>
+        <div class="chat-input-area">
+          <span class="prompt">TX></span>
+          <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
+        </div>
       </div>
     </div>
 
-    <div id="chat-wrapper">
+    <!-- Right Column: Dedicated 3D Europa Dot Matrix Viewport -->
+    <div id="europa-viewport-wrapper">
       <header>
-        <h3>PILOT COMMS</h3>
-        <span class="status-pulse"></span>
+        <h3>EUROPA TOPOLOGY</h3>
+        <small>DOT-MATRIX TELEMETRY</small>
       </header>
-      <div id="chat-messages"></div>
-      <div class="chat-input-area">
-        <span class="prompt">TX></span>
-        <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
-      </div>
+      <div id="europa-3d"></div>
+      <div class="viewport-footer">LIVE MESH PROJECTION // BAKED COLORS ACTIVE</div>
     </div>
   </div>
 
+  <!-- Sliding Side Tray (Dice & Calc) -->
   <aside id="side-tray">
     <div class="tray-header">
       <h3>SYSTEM TOOLS</h3>
@@ -112,7 +121,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   
-  <!-- Correct root-level JS script link -->
   <script src="europa.js"></script>
 </body>
 </html>
