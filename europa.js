@@ -105,8 +105,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
   const config = {
-    apiKey: "AIzaSyBJKMF5F9s_C6jIxUsAacZPTzTIEcWRHZQ",
-    projectId: "library-terminal-4c413"
+    apiKey: "AIzaSyB2nuuvLSrXQiHPRSwQ-TwcTKEQ_Zedbz0",
+    authDomain: "europa-4b0d3.firebaseapp.com",
+    projectId: "europa-4b0d3",
+    storageBucket: "europa-4b0d3.firebasestorage.app",
+    messagingSenderId: "587142063782",
+    appId: "1:587142063782:web:d25fed404260f6f265f667",
+    measurementId: "G-MH1VL587NH"
   };
   
   if (!firebase.apps.length) firebase.initializeApp(config);
