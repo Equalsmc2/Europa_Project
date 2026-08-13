@@ -1,18 +1,67 @@
-// src/App.tsx
-import Droplets from "@/components/canvasui/Droplets";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas UI Basic Page</title>
+    <style>
+        /* Make sure the page takes up the full screen */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: sans-serif;
+        }
 
-function App() {
-  return (
-    <div className="relative h-screen w-full">
-      {/* Your regular HTML content */}
-      <h1 className="z-10 absolute top-10 left-10 text-4xl">Hello Canvas UI</h1>
-      
-      {/* The Canvas UI effect */}
-      <div className="absolute inset-0 z-0">
-        <Droplets />
-      </div>
+        /* Normal HTML content that sits ON TOP of the canvas effect */
+        .content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: white;
+            pointer-events: none; /* Allows mouse clicks to pass through to the effect */
+        }
+
+        .content h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Container for the canvas effect */
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Your normal HTML content -->
+    <div class="content">
+        <h1>Hello World</h1>
+        <p>This HTML stays fully interactive over a WebGL canvas effect.</p>
     </div>
-  );
-}
 
-export default App;
+    <!-- The container where the canvas effect renders -->
+    <div id="canvas-container"></div>
+
+    <!-- Import your downloaded Canvas UI vanilla script -->
+    <script type="module">
+        import { Liquid } from './liquid-vanilla.js'; // The file you grabbed from canvasui.dev
+
+        // Initialize the effect inside your container
+        const container = document.getElementById('canvas-container');
+        const effect = new Liquid(container, {
+            // configuration options if any
+        });
+    </script>
+</body>
+</html>
