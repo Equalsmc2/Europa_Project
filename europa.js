@@ -1,40 +1,77 @@
 document.addEventListener("DOMContentLoaded", () => {
+  
+  // REAL-WORLD EUROPA LOCATIONS (Approximate Lat/Lon)
+  // Feel free to add custom campaign locations here.
+  const europaLocations = {
+    "conamara chaos": { lat: 9.7, lon: 272.7 },
+    "pwyll crater": { lat: -25.2, lon: 271.4 },
+    "thera macula": { lat: -46.7, lon: 181.2 },
+    "thrace macula": { lat: -45.9, lon: 172.1 },
+    "cilix crater": { lat: 2.6, lon: 181.9 },
+    "minos linea": { lat: 45.0, lon: 200.0 }, 
+    "rhadamanthys linea": { lat: 30.0, lon: 150.0 }, 
+    "castalia macula": { lat: -1.6, lon: 225.7 },
+    "outpost zero": { lat: 0, lon: 0 }, // Example Fictional Base
+    "abyssal gate": { lat: -80, lon: 45 } // Example Fictional Base
+  };
+
   // ==========================================
-  // THREE.JS - COLORED DOT MATRIX GLB (SIDE PANEL)
+  // THREE.JS - COLORED DOT MATRIX GLB
   // ==========================================
+  
+  // We need to access these globally to update the marker position
+  let planetGroup, marker, planetRadius = 1;
+
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
     if (!container) return;
     
     const scene = new THREE.Scene();
+    
+    // Zoomed in the camera to make the planet much more visible
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 5.5;
+    camera.position.z = 3.5; 
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
+    // Group to hold both the planet and the marker so they rotate together
+    planetGroup = new THREE.Group();
+    scene.add(planetGroup);
+
+    // Create the Marker (A bright pink glowing sphere)
+    const markerGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
+    marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.visible = false; // Hidden by default until a location is set
+    planetGroup.add(marker);
+
     const loader = new THREE.GLTFLoader();
-    
     loader.load('europa.glb', (gltf) => {
       gltf.scene.traverse((child) => {
         if (child.isMesh) {
           const geometry = child.geometry;
           
-          // Render as a colored point cloud matching model data if available
+          // Made the dots thicker for better visibility
           const hasColors = geometry.hasAttribute('color');
           const material = new THREE.PointsMaterial({
-            size: 0.045, 
+            size: 0.07, 
             vertexColors: hasColors,
-            color: hasColors ? 0xffffff : 0xccff00 // Falls back to matching chartreuse theme color if uncolored
+            color: hasColors ? 0xffffff : 0xccff00 
           });
           
           const points = new THREE.Points(geometry, material);
+          
+          // Center the geometry and calculate its true radius for the marker
           geometry.computeBoundingBox();
           const center = geometry.boundingBox.getCenter(new THREE.Vector3());
           points.position.sub(center);
           
-          scene.add(points);
+          geometry.computeBoundingSphere();
+          planetRadius = geometry.boundingSphere.radius;
+          
+          planetGroup.add(points);
         }
       });
     }, undefined, (error) => {
@@ -43,8 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const animate = () => {
       requestAnimationFrame(animate);
-      scene.rotation.y += 0.003;
-      scene.rotation.x += 0.001;
+      // Rotate the entire group (Planet + Marker)
+      planetGroup.rotation.y += 0.003;
+      planetGroup.rotation.x += 0.001;
       renderer.render(scene, camera);
     };
     animate();
@@ -58,6 +96,31 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   initEuropa3D();
+
+  // Function to move the 3D marker based on Lat/Lon
+  window.updatePlanetMarker = (locationName) => {
+    if(!locationName || !marker) return;
+    
+    const loc = europaLocations[locationName.toLowerCase()];
+    if(!loc) { 
+      marker.visible = false; 
+      return; 
+    }
+
+    marker.visible = true;
+    
+    // Convert Lat/Lon to 3D Sphere Coordinates
+    const phi = (90 - loc.lat) * (Math.PI / 180);
+    const theta = (loc.lon + 180) * (Math.PI / 180);
+    
+    // Push the marker slightly above the surface so it isn't buried in the dots
+    const R = planetRadius * 1.05; 
+
+    marker.position.x = -(R * Math.sin(phi) * Math.cos(theta));
+    marker.position.z = (R * Math.sin(phi) * Math.sin(theta));
+    marker.position.y = (R * Math.cos(phi));
+  };
+
 
   // ==========================================
   // UI & TOOLS
@@ -100,9 +163,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
+  // BE SURE TO INSERT YOUR ACTUAL FIREBASE CONFIG HERE
   const config = {
-    apiKey: "YOUR_API_KEY",
-    projectId: "europa-4b0d3"
+    apiKey: "YOUR_API_KEY", 
+    projectId: "europa-4b0d3" 
   };
   
   if (!firebase.apps.length) firebase.initializeApp(config);
@@ -146,6 +210,18 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) { log(`[FATAL ERROR] DB Connection lost: ${err.message}`, "error"); }
   };
 
+  // Real-time listener for the location marker
+  db.collection("meta").doc("location").onSnapshot((doc) => {
+    const locFooter = document.getElementById("europa-location-text");
+    if (doc.exists) {
+      const locName = doc.data().name;
+      if (window.updatePlanetMarker) window.updatePlanetMarker(locName);
+      if (locFooter) locFooter.innerText = `LOC_TRACK: ${locName.toUpperCase()}`;
+    } else {
+      if (locFooter) locFooter.innerText = "LOC_TRACK: OFFLINE";
+    }
+  });
+
   const commands = {
     help: () => `
     [ SYSTEM COMMANDS ]
@@ -157,10 +233,15 @@ document.addEventListener("DOMContentLoaded", () => {
     inv             → Check cargo hold
     weather         → Check atmospheric conditions
     radio           → Intercept omninet signals
+    location        → Check current topological sector
     bank [+/- amt]  → Manage manna/credits
     shop            → View requisition list
     buy [item]      → Requisition an item
-    clear           → Clear display`,
+    clear           → Clear display
+    
+    [ VALID LOCATIONS ]
+    Conamara Chaos, Pwyll Crater, Thera Macula, Thrace Macula, 
+    Cilix Crater, Minos Linea, Rhadamanthys Linea, Castalia Macula`,
     
     write: async (t) => { if (!t) return "Syntax: write [text]"; await db.collection("notes").add({ text: t, timestamp: Date.now() }); return "Log saved."; },
     read: async () => {
@@ -183,6 +264,13 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     weather: async () => { const doc = await db.collection("meta").doc("temperature").get(); return doc.exists ? `[ATMOSPHERE]: ${doc.data().text}` : "Sensors offline."; },
     radio: async () => { const doc = await db.collection("meta").doc("broadcast").get(); return doc.exists ? `[INTERCEPT]:\n"${doc.data().text}"` : "No signals detected."; },
+    
+    // New Player Location Command
+    location: async () => { 
+      const doc = await db.collection("meta").doc("location").get(); 
+      return doc.exists ? `[TELEMETRY]: Current sector is ${doc.data().name.toUpperCase()}.` : "[TELEMETRY]: Signal lost."; 
+    },
+
     bank: async (input) => {
       const goldRef = db.collection("meta").doc("gold"); const doc = await goldRef.get();
       let current = doc.exists ? doc.data().amount : 0;
@@ -210,6 +298,16 @@ document.addEventListener("DOMContentLoaded", () => {
     "admin weather": async (t) => { if(!t) return "Error"; await db.collection("meta").doc("temperature").set({ text: t, timestamp: Date.now() }); return `Atmosphere updated.`; },
     "admin radio": async (t) => { if(!t) return "Error"; await db.collection("meta").doc("broadcast").set({ text: t, timestamp: Date.now() }); return `Broadcast updated.`; },
     "admin stock": async (input) => { const [n, p] = input.split(";"); await db.collection("shop").add({ name: n.trim(), price: parseInt(p), timestamp: Date.now() }); return `Stock updated.`; },
+    
+    // New Admin Location Command
+    "admin location": async (loc) => { 
+      if(!loc) return "Error: admin location [name]"; 
+      // Check if location exists in dictionary
+      if (!europaLocations[loc.toLowerCase()]) return `Error: Unknown coordinates for '${loc}'. Check valid locations in 'help'.`;
+      await db.collection("meta").doc("location").set({ name: loc, timestamp: Date.now() }); 
+      return `Tracking beacon deployed to '${loc}'.`; 
+    },
+    
     clear: () => { terminal.innerHTML = ""; return ""; }
   };
 
