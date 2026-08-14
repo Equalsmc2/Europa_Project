@@ -87,23 +87,18 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
+      // Perfectly center the 3D model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
-      
-      planetModel.position.x = -center.x;
-      planetModel.position.y = -center.y;
-      planetModel.position.z = -center.z;
-      
-      const modelWrapper = new THREE.Group();
-      modelWrapper.add(planetModel);
+      planetModel.position.sub(center);
       
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       
-      // Strict R = 1.02 multiplier based on actual loaded mesh
+      // THE FIX: Strict 1.02 multiplier based directly on the loaded model's size
       const planetRadius = sphere.radius;
       const R = planetRadius * 1.02; 
       
-      planetGroup.add(modelWrapper);
+      planetGroup.add(planetModel);
 
       const platesGroup = new THREE.Group();
       const locNames = Object.keys(europaLocations);
@@ -130,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tectonicPlates[n] = {};
       });
 
+      // Flawless smooth geometric grid (removed the noise distortion)
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
       
       const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
@@ -152,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           locNames.forEach(key => {
               let dist = triCenter.distanceTo(locVectors[key]);
+              // Add slight boundary disruption so it still forms natural puzzle pieces
               dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
               if(dist < minDist) {
                   minDist = dist;
@@ -207,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.6 
+          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.5 
         });
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
@@ -244,7 +241,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   tectonicPlates[currentHover].hoverOutline.visible = false;
                   if(currentHover !== activeRegion) {
                       tectonicPlates[currentHover].sprite.material.color.setHex(0x00f0ff);
-                      tectonicPlates[currentHover].sprite.material.opacity = 0.6;
+                      tectonicPlates[currentHover].sprite.material.opacity = 0.5;
                   }
               }
               if(newHover && tectonicPlates[newHover]) {
@@ -278,7 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Object.keys(tectonicPlates).forEach(key => {
       if(key !== currentHover) {
           tectonicPlates[key].sprite.material.color.setHex(0x00f0ff);
-          tectonicPlates[key].sprite.material.opacity = 0.6;
+          tectonicPlates[key].sprite.material.opacity = 0.5;
       }
     });
 
