@@ -1,4 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
+
+  // ASCIIFY BACKGROUND GENERATOR
+  const asciiLayer = document.getElementById("ascii-layer");
+  if(asciiLayer) {
+      const chars = "01010101<>:-=+*#%X&/\\";
+      let str = "";
+      for(let i=0; i<8000; i++) str += chars[Math.floor(Math.random() * chars.length)];
+      asciiLayer.innerText = str;
+  }
   
   // 20 BASIC ENGLISH LOCATIONS
   const europaLocations = {
@@ -39,9 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const scene = new THREE.Scene();
     
-    // Updated for Full Screen
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 4.0;
+    camera.position.z = 4.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -54,17 +62,34 @@ document.addEventListener("DOMContentLoaded", () => {
     controls.minDistance = 1.5;
     controls.maxDistance = 10;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.3;
+    controls.autoRotateSpeed = 0.2;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xccffff, 1.2);
     dirLight.position.set(5, 5, 5);
     scene.add(dirLight);
 
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
+    // ==========================================
+    // PARTICLE OBJECT (CRYO DUST)
+    // ==========================================
+    const particleCount = 1200;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePos = new Float32Array(particleCount * 3);
+    for(let i=0; i<particleCount*3; i++) {
+        particlePos[i] = (Math.random() - 0.5) * 8; // Spread around the planet
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+    const particleMat = new THREE.PointsMaterial({
+        color: 0x00f0ff, size: 0.015, transparent: true, opacity: 0.3
+    });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    planetGroup.add(particles);
+
+    // Interaction Raycasting updates
     window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -76,23 +101,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
-      
-      planetModel.position.x = -center.x;
-      planetModel.position.y = -center.y;
-      planetModel.position.z = -center.z;
+      planetModel.position.sub(center);
       
       const modelWrapper = new THREE.Group();
       modelWrapper.add(planetModel);
       
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       const R = 1.2; 
-      
       const scaleFactor = (R * 0.985) / sphere.radius; 
       modelWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
       planetGroup.add(modelWrapper);
 
       const platesGroup = new THREE.Group();
-      
       const locNames = Object.keys(europaLocations);
       const locVectors = {};
       
@@ -118,8 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
-      
-      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.1 });
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
       const wireMesh = new THREE.LineSegments(new THREE.WireframeGeometry(baseGeo), wireMat);
       platesGroup.add(wireMesh);
 
@@ -160,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
       baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
       const plateMat = new THREE.MeshBasicMaterial({
-          vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false
+          vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false
       });
       tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
       platesGroup.add(tectonicMesh);
@@ -194,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.5 
+          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.6 
         });
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
@@ -213,6 +232,11 @@ document.addEventListener("DOMContentLoaded", () => {
       requestAnimationFrame(animate);
       controls.update();
       
+      // Rotate cryo dust slowly
+      particles.rotation.y += 0.0005;
+      particles.rotation.x += 0.0002;
+
+      // Hover Logic
       if (tectonicMesh) {
           raycaster.setFromCamera(mouse, camera);
           const intersects = raycaster.intersectObject(tectonicMesh);
@@ -228,7 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   tectonicPlates[currentHover].hoverOutline.visible = false;
                   if(currentHover !== activeRegion) {
                       tectonicPlates[currentHover].sprite.material.color.setHex(0x00f0ff);
-                      tectonicPlates[currentHover].sprite.material.opacity = 0.5;
+                      tectonicPlates[currentHover].sprite.material.opacity = 0.6;
                   }
               }
               if(newHover && tectonicPlates[newHover]) {
@@ -262,7 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Object.keys(tectonicPlates).forEach(key => {
       if(key !== currentHover) {
           tectonicPlates[key].sprite.material.color.setHex(0x00f0ff);
-          tectonicPlates[key].sprite.material.opacity = 0.5;
+          tectonicPlates[key].sprite.material.opacity = 0.6;
       }
     });
 
@@ -273,7 +297,6 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let f = 0; f < faceRegions.length; f++) {
         const isTarget = (faceRegions[f] === cleanName);
         const c = isTarget ? activeColor : transparentBlack;
-
         for(let v = 0; v < 3; v++) {
             const idx = (f * 3 + v) * 3;
             colors[idx] = c.r;
@@ -321,7 +344,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // FIREBASE & TERMINAL LOGIC
+  // FIREBASE & DECRYPT LOGIC
   // ==========================================
   const config = {
     apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
@@ -343,12 +366,40 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   setInterval(updateClock, 1000); updateClock();
 
+  // DECRYPT REVEAL FUNCTION
+  const decryptChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>[]{}|';
   const log = (text, type = "normal") => {
     const div = document.createElement("div");
     div.classList.add("line", type);
-    div.innerHTML = text.replace(/\n/g, "<br>");
     terminal.appendChild(div);
     terminal.scrollTop = terminal.scrollHeight;
+
+    // Skip animation for HTML elements (like the yellow shop items)
+    if(text.includes('<span')) {
+        div.innerHTML = text.replace(/\n/g, "<br>");
+        return;
+    }
+
+    const lines = text.split('\n');
+    let iterations = 0;
+    const maxIterations = 15;
+
+    const interval = setInterval(() => {
+        div.innerHTML = lines.map(line => {
+            return line.split('').map((char, idx) => {
+                if(char === ' ') return ' ';
+                if(idx < (iterations / maxIterations) * line.length) return char;
+                return decryptChars[Math.floor(Math.random() * decryptChars.length)];
+            }).join('');
+        }).join('<br>');
+        
+        iterations++;
+        if(iterations >= maxIterations) {
+            clearInterval(interval);
+            div.innerHTML = text.replace(/\n/g, "<br>");
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+    }, 30);
   };
 
   const formatTime = (ms) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -359,7 +410,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cache.notes = notesSnap.docs.map(doc => doc.id);
       log("\nDATA LOGS:", "gold");
       if (notesSnap.empty) log(" [NULL] No logs found.", "system");
-      else notesSnap.docs.forEach((doc, i) => { log(`<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> LOG_0${i + 1}: ${doc.data().text}`); });
+      else notesSnap.docs.forEach((doc, i) => { log(`[${formatTime(doc.data().timestamp)}] LOG_0${i + 1}: ${doc.data().text}`); });
 
       const invSnap = await db.collection("inventory").orderBy("timestamp").get();
       cache.inventory = invSnap.docs.map(doc => doc.id);
@@ -406,7 +457,7 @@ document.addEventListener("DOMContentLoaded", () => {
     write: async (t) => { if (!t) return "Syntax: write [text]"; await db.collection("notes").add({ text: t, timestamp: Date.now() }); return "Log saved."; },
     read: async () => {
       const snap = await db.collection("notes").orderBy("timestamp").get(); cache.notes = snap.docs.map(doc => doc.id);
-      return snap.empty ? "[NULL] No notes exist." : snap.docs.map((doc, i) => `<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> NOTE_0${i+1}: ${doc.data().text}`).join("\n");
+      return snap.empty ? "[NULL] No notes exist." : snap.docs.map((doc, i) => `[${formatTime(doc.data().timestamp)}] NOTE_0${i+1}: ${doc.data().text}`).join("\n");
     },
     rm: async (i) => {
       const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.notes[idx]) return "[ERROR] Invalid note number.";
