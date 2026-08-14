@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="europa.css?v=23"/>
+  <link rel="stylesheet" href="europa.css?v=22"/>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -23,8 +23,8 @@
   <!-- High-Gloss Liquid Glass HUD -->
   <div id="hud-interface">
     
+    <!-- LEFT PANEL: Terminal -->
     <div id="left-stack" class="liquid-glass">
-      
       <div id="terminal-wrapper">
         <header>
           <div class="brand">
@@ -45,25 +45,32 @@
           <input id="cli" type="text" autocomplete="off" placeholder="AWAITING INPUT..." autofocus />
         </div>
       </div>
+    </div>
 
+    <!-- RIGHT PANEL: Local Comms -->
+    <div id="right-stack" class="liquid-glass">
       <div id="chat-wrapper">
         <header>
           <h3>LOCAL COMMS</h3>
           <span class="status-pulse"></span>
         </header>
-        <div id="chat-messages"></div>
+        
+        <div id="chat-housing">
+          <div id="chat-messages"></div>
+        </div>
+        
         <div class="chat-input-area">
           <span class="prompt">TX></span>
           <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
         </div>
       </div>
-
     </div>
+
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   
-  <script src="europa.js?v=21"></script>
+  <script src="europa.js?v=22"></script>
 </body>
 </html>
