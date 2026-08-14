@@ -54,11 +54,15 @@ document.addEventListener("DOMContentLoaded", () => {
           const geometry = child.geometry;
           
           // Made the dots thicker for better visibility
+          // Lowered the size and added transparency for a true dot-matrix look
           const hasColors = geometry.hasAttribute('color');
           const material = new THREE.PointsMaterial({
-            size: 0.07, 
+            size: 0.015, // Try 0.015 or 0.01 depending on how small you want the dots
             vertexColors: hasColors,
-            color: hasColors ? 0xffffff : 0xccff00 
+            color: hasColors ? 0xffffff : 0xccff00,
+            transparent: true,
+            opacity: 0.7, // Adds a slight ghosting effect to the dots
+            sizeAttenuation: true // Ensures dots get smaller as they rotate away from the camera
           });
           
           const points = new THREE.Points(geometry, material);
