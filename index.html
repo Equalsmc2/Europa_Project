@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>EUROPA PROJECT // LANCER OS</title>
+  <title>CRYO ARCHIVE // EUROPA</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,107 +16,114 @@
 </head>
 <body>
   
-  <div id="main-interface">
-    <!-- Left Column: Terminal & Comms -->
-    <div id="left-stack">
-      <div id="terminal-wrapper">
+  <!-- Sub-zero atmospheric background -->
+  <div id="ambient-blizzard"></div>
+
+  <div id="tactical-grid">
+    
+    <!-- LEFT COLUMN: Topology & Comms -->
+    <div class="grid-column column-left">
+      
+      <div class="cryo-panel" id="panel-topology">
         <header>
-          <div class="brand">
-            <h2>EUROPA PROJECT</h2>
-            <small>NHP OMNINET LINK // LANCER SYSTEM</small>
-          </div>
-          <div id="system-clock">--:--:--</div>
-          <button id="tools-toggle">DEPLOY TOOLS</button>
+          <h3>ORBITAL MAP</h3>
+          <small>SECTOR: EUROPA</small>
         </header>
-        
-        <div id="terminal-housing">
-          <div id="terminal">
-            <div class="line system">Establishing secure Omninet connection...</div>
-            <div class="line system">Initializing orbital mapping grid...</div>
-          </div>
-        </div>
-        
-        <div class="input-line">
-          <span class="prompt">NHP></span>
-          <input id="cli" type="text" autocomplete="off" placeholder="INPUT COMMAND..." autofocus />
+        <div id="europa-3d"></div>
+        <div class="viewport-footer">
+          <span id="europa-location-text">AWAITING TELEMETRY...</span>
         </div>
       </div>
 
-      <div id="chat-wrapper">
+      <div class="cryo-panel" id="panel-chat">
         <header>
-          <h3>PILOT COMMS</h3>
+          <h3>COMMS RELAY</h3>
           <span class="status-pulse"></span>
         </header>
         <div id="chat-messages"></div>
         <div class="chat-input-area">
           <span class="prompt">TX></span>
-          <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
+          <input id="chat-input" type="text" placeholder="Transmit..." autocomplete="off" />
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CENTER COLUMN: Main Terminal -->
+    <div class="grid-column column-center">
+      <div class="cryo-panel" id="panel-terminal">
+        <header class="main-header">
+          <div class="brand">
+            <h2>CRYO ARCHIVE // DEEP STONE</h2>
+            <small>NHP // LANCER SYSTEM FRAMEWORK</small>
+          </div>
+          <div id="system-clock">--:--:--</div>
+        </header>
+        
+        <div id="terminal-housing">
+          <div id="terminal">
+            <div class="line system">Establishing secure connection to Deep Stone crypt...</div>
+            <div class="line system">Sub-zero temperatures detected. Thermal shielding active.</div>
+          </div>
+        </div>
+        
+        <div class="input-line">
+          <span class="prompt">EXEC></span>
+          <input id="cli" type="text" autocomplete="off" placeholder="AWAITING COMMAND..." autofocus />
         </div>
       </div>
     </div>
 
-    <!-- Right Column: Interactive Globe Viewport -->
-    <div id="europa-viewport-wrapper">
-      <header>
-        <h3>EUROPA TOPOLOGY</h3>
-        <small>TACTICAL GRID // DRAG TO ROTATE</small>
-      </header>
-      <div id="europa-3d"></div>
-      <div class="viewport-footer">
-        <span id="europa-location-text">AWAITING LOCATION DATA...</span>
+    <!-- RIGHT COLUMN: Tools & Compute -->
+    <div class="grid-column column-right">
+      
+      <div class="cryo-panel" id="panel-dice">
+        <header>
+          <h3>FATE MATRIX</h3>
+        </header>
+        <div id="dice-display">STANDBY</div>
+        <div class="dice-grid">
+          <button onclick="roll(4)">D4</button>
+          <button onclick="roll(6)">D6</button>
+          <button onclick="roll(8)">D8</button>
+          <button onclick="roll(10)">D10</button>
+          <button onclick="roll(12)">D12</button>
+          <button onclick="roll(20)">D20</button>
+          <button onclick="roll(100)">D100</button>
+        </div>
       </div>
+
+      <div class="cryo-panel" id="panel-calc">
+        <header>
+          <h3>ALGORITHM</h3>
+        </header>
+        <div id="calc-screen">0</div>
+        <div class="calc-grid">
+          <button onclick="calc('7')">7</button>
+          <button onclick="calc('8')">8</button>
+          <button onclick="calc('9')">9</button>
+          <button class="op" onclick="calc('/')">÷</button>
+          
+          <button onclick="calc('4')">4</button>
+          <button onclick="calc('5')">5</button>
+          <button onclick="calc('6')">6</button>
+          <button class="op" onclick="calc('*')">×</button>
+          
+          <button onclick="calc('1')">1</button>
+          <button onclick="calc('2')">2</button>
+          <button onclick="calc('3')">3</button>
+          <button class="op" onclick="calc('-')">-</button>
+          
+          <button class="clear" onclick="calc('C')">C</button>
+          <button onclick="calc('0')">0</button>
+          <button class="equal" onclick="calc('=')">=</button>
+          <button class="op" onclick="calc('+')">+</button>
+        </div>
+      </div>
+
     </div>
+
   </div>
-
-  <!-- Sliding Side Tray (Dice & Calc) -->
-  <aside id="side-tray">
-    <div class="tray-header">
-      <h3>SYSTEM TOOLS</h3>
-      <button id="tray-close">✖</button>
-    </div>
-
-    <div class="tool-section">
-      <h4>MECHANICAL RESOLUTION</h4>
-      <div id="dice-display">STANDBY</div>
-      <div class="dice-grid">
-        <button onclick="roll(4)">d4</button>
-        <button onclick="roll(6)">d6</button>
-        <button onclick="roll(8)">d8</button>
-        <button onclick="roll(10)">d10</button>
-        <button onclick="roll(12)">d12</button>
-        <button onclick="roll(20)">d20</button>
-        <button onclick="roll(100)">d100</button>
-      </div>
-    </div>
-
-    <hr class="divider">
-
-    <div class="tool-section">
-      <h4>COMPUTE</h4>
-      <div id="calc-screen">0</div>
-      <div class="calc-grid">
-        <button onclick="calc('7')">7</button>
-        <button onclick="calc('8')">8</button>
-        <button onclick="calc('9')">9</button>
-        <button class="op" onclick="calc('/')">÷</button>
-        
-        <button onclick="calc('4')">4</button>
-        <button onclick="calc('5')">5</button>
-        <button onclick="calc('6')">6</button>
-        <button class="op" onclick="calc('*')">×</button>
-        
-        <button onclick="calc('1')">1</button>
-        <button onclick="calc('2')">2</button>
-        <button onclick="calc('3')">3</button>
-        <button onclick="calc('op')">-</button>
-        
-        <button class="clear" onclick="calc('C')">C</button>
-        <button onclick="calc('0')">0</button>
-        <button class="equal" onclick="calc('=')">=</button>
-        <button class="op" onclick="calc('+')">+</button>
-      </div>
-    </div>
-  </aside>
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
