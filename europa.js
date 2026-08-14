@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // ==========================================
       // STABLE INTERLOCKING ISOSPHERE (VORONOI)
       // ==========================================
-      const R = planetRadius * 1.5; // Wrap tightly around the globe
+      const R = planetRadius * 1.015; // Wrap tightly around the globe
       
       // Calculate 3D center vectors for every location
       const locVectors = {};
