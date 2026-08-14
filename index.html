@@ -9,8 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   
-  <!-- BUMPED VERSION TO 17 TO BYPASS CACHE -->
-  <link rel="stylesheet" href="europa.css?v=17"/>
+  <link rel="stylesheet" href="europa.css?v=18"/>
 
   <!-- Three.js and OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -19,17 +18,17 @@
 </head>
 <body>
   
-  <!-- CRT Scanline Overlay -->
+  <!-- Asciify & Dither Background -->
+  <div class="ascii-bg" id="ascii-layer"></div>
   <div class="scanlines"></div>
 
-  <!-- Full Screen 3D Background -->
+  <!-- Full Screen 3D Viewport -->
   <div id="europa-3d"></div>
 
-  <!-- Floating Glass HUD -->
+  <!-- Frost/Glass HUD Interface -->
   <div id="hud-interface">
     
-    <!-- Left Glass Panel: Terminal & Comms -->
-    <div id="left-stack" class="glass-panel">
+    <div id="left-stack" class="glass-panel frosted">
       <div id="terminal-wrapper">
         <header>
           <div class="brand">
@@ -42,7 +41,6 @@
         <div id="terminal-housing">
           <div id="terminal">
             <div class="line system">Establishing secure Omninet connection...</div>
-            <div class="line system">Initializing dark-matrix terminal interface...</div>
           </div>
         </div>
         
@@ -65,8 +63,7 @@
       </div>
     </div>
 
-    <!-- Right Glass Panel: Telemetry & Tools -->
-    <div id="right-stack" class="glass-panel">
+    <div id="right-stack" class="glass-panel frosted">
       <div class="telemetry-header">
         <h3>EUROPA TOPOLOGY</h3>
         <span id="europa-location-text">LOC_TRACK: OFFLINE</span>
@@ -78,13 +75,13 @@
         <h4>MECHANICAL RESOLUTION</h4>
         <div id="dice-display">STANDBY</div>
         <div class="dice-grid">
-          <button onclick="roll(4)">d4</button>
-          <button onclick="roll(6)">d6</button>
-          <button onclick="roll(8)">d8</button>
-          <button onclick="roll(10)">d10</button>
-          <button onclick="roll(12)">d12</button>
-          <button onclick="roll(20)">d20</button>
-          <button onclick="roll(100)">d100</button>
+          <button class="magnify-btn" onclick="roll(4)">d4</button>
+          <button class="magnify-btn" onclick="roll(6)">d6</button>
+          <button class="magnify-btn" onclick="roll(8)">d8</button>
+          <button class="magnify-btn" onclick="roll(10)">d10</button>
+          <button class="magnify-btn" onclick="roll(12)">d12</button>
+          <button class="magnify-btn" onclick="roll(20)">d20</button>
+          <button class="magnify-btn" onclick="roll(100)">d100</button>
         </div>
       </div>
 
@@ -94,35 +91,33 @@
         <h4>SUBSYSTEM COMPUTE</h4>
         <div id="calc-screen">0</div>
         <div class="calc-grid">
-          <button onclick="calc('7')">7</button>
-          <button onclick="calc('8')">8</button>
-          <button onclick="calc('9')">9</button>
-          <button class="op" onclick="calc('/')">÷</button>
+          <button class="magnify-btn" onclick="calc('7')">7</button>
+          <button class="magnify-btn" onclick="calc('8')">8</button>
+          <button class="magnify-btn" onclick="calc('9')">9</button>
+          <button class="magnify-btn op" onclick="calc('/')">÷</button>
           
-          <button onclick="calc('4')">4</button>
-          <button onclick="calc('5')">5</button>
-          <button onclick="calc('6')">6</button>
-          <button class="op" onclick="calc('*')">×</button>
+          <button class="magnify-btn" onclick="calc('4')">4</button>
+          <button class="magnify-btn" onclick="calc('5')">5</button>
+          <button class="magnify-btn" onclick="calc('6')">6</button>
+          <button class="magnify-btn op" onclick="calc('*')">×</button>
           
-          <button onclick="calc('1')">1</button>
-          <button onclick="calc('2')">2</button>
-          <button onclick="calc('3')">3</button>
-          <button class="op" onclick="calc('-')">-</button>
+          <button class="magnify-btn" onclick="calc('1')">1</button>
+          <button class="magnify-btn" onclick="calc('2')">2</button>
+          <button class="magnify-btn" onclick="calc('3')">3</button>
+          <button class="magnify-btn op" onclick="calc('-')">-</button>
           
-          <button class="clear" onclick="calc('C')">C</button>
-          <button onclick="calc('0')">0</button>
-          <button class="equal" onclick="calc('=')">=</button>
-          <button class="op" onclick="calc('+')">+</button>
+          <button class="magnify-btn clear" onclick="calc('C')">C</button>
+          <button class="magnify-btn" onclick="calc('0')">0</button>
+          <button class="magnify-btn equal" onclick="calc('=')">=</button>
+          <button class="magnify-btn op" onclick="calc('+')">+</button>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-  
-  <script src="europa.js?v=17"></script>
+  <script src="europa.js?v=18"></script>
 </body>
 </html>
