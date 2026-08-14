@@ -57,44 +57,50 @@ document.addEventListener("DOMContentLoaded", () => {
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
-      // Extract the precise radius from your GLB geometry bounds
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       planetRadius = sphere.radius;
       
       planetGroup.add(planetModel);
 
-      // GENERATE JAGGED TECTONIC BOUNDARIES & TEXT LABELS FLUSH TO SURFACE
+      // GENERATE JAGGED TECTONIC BOUNDARIES PERFECTLY SPHERICAL
       const platesGroup = new THREE.Group();
       
       Object.keys(europaLocations).forEach((locKey) => {
         const loc = europaLocations[locKey];
         
-        // Convert Lat/Lon to 3D space
+        // Convert Lat/Lon to 3D space for the center of the plate
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
-        const R = planetRadius;
+        
+        // R is the exact radius of the planet + 0.8% to hover just above the texture
+        const R = planetRadius * 1.008; 
 
         const tx = -(R * Math.sin(phi) * Math.cos(theta));
         const tz = (R * Math.sin(phi) * Math.sin(theta));
         const ty = (R * Math.cos(phi));
         const targetPos = new THREE.Vector3(tx, ty, tz);
 
-        // Procedural Jagged Tectonic Line Loop
+        // Procedural Tectonic Math: Generating points directly on the curve of the sphere
         const points = [];
-        const numPoints = 35; 
-        const baseRadius = R * 0.35; // Sized nicely to fit segments onto the sphere
+        const numPoints = 65; // High resolution for organic lines
+        const baseBeta = 0.15 + (Math.random() * 0.1); // Size of the region
 
         for(let i = 0; i < numPoints; i++) {
-          const angle = (i / numPoints) * Math.PI * 2;
-          // Add procedural noise to make boundaries jagged like tectonic plates
-          const noise = baseRadius * (0.7 + (Math.sin(i * 3) * 0.3) + (Math.random() * 0.2)); 
+          const gamma = (i / numPoints) * Math.PI * 2;
           
-          const x = Math.cos(angle) * noise;
-          const y = Math.sin(angle) * noise;
-          const z = Math.sqrt(Math.max(0, R*R - x*x - y*y)); 
+          // Overlapping sine waves create natural, organic fault lines instead of spikes
+          let noise = Math.sin(gamma * 3 + Math.random()) * 0.04;
+          noise += Math.sin(gamma * 7) * 0.02;
+          noise += (Math.random() - 0.5) * 0.015; // slight rough edge
           
-          // Align directly flush against the model's outer shell (R * 1.002)
-          points.push(new THREE.Vector3(x, y, z).setLength(R * 1.002)); 
+          const beta = baseBeta + noise;
+          
+          // Generate points mathematically hugging a perfect sphere at the Z-pole
+          const x = R * Math.sin(beta) * Math.cos(gamma);
+          const y = R * Math.sin(beta) * Math.sin(gamma);
+          const z = R * Math.cos(beta);
+          
+          points.push(new THREE.Vector3(x, y, z));
         }
         
         const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -104,7 +110,10 @@ document.addEventListener("DOMContentLoaded", () => {
           opacity: 0.45 
         });
         
+        // LineLoop connects the end of the fault line back to the start
         const lineLoop = new THREE.LineLoop(lineGeo, lineMat);
+        
+        // Snap the perfectly curved spherical cap to the correct coordinates
         lineLoop.position.set(0, 0, 0);
         lineLoop.lookAt(targetPos);
         platesGroup.add(lineLoop);
@@ -125,13 +134,13 @@ document.addEventListener("DOMContentLoaded", () => {
           map: texture, 
           color: 0x00f0ff, 
           transparent: true, 
-          opacity: 0.7 
+          opacity: 0.6 
         });
         
+        // Place the sprite directly in the center of the tectonic plate
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(0.9, 0.22, 1);
-        // Position text precisely in the center of the plate region
-        sprite.position.copy(targetPos).setLength(R * 1.02); 
+        sprite.scale.set(0.8, 0.2, 1);
+        sprite.position.copy(targetPos).setLength(R * 1.01); 
         platesGroup.add(sprite);
 
         tectonicPlates[locKey] = { loop: lineLoop, sprite: sprite };
