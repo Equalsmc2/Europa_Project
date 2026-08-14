@@ -15,9 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let planetGroup, marker, planetRadius = 1;
-  let tectonicMesh; 
-  let faceRegions = []; // Used to track which puzzle piece belongs to which location
-  const textSprites = {}; 
+  const tectonicPlates = {}; 
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -26,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 4.5;
+    camera.position.z = 3.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -36,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
-    controls.minDistance = 2;
+    controls.minDistance = 1.5;
     controls.maxDistance = 10;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.3;
@@ -51,7 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scene.add(planetGroup);
 
     // Location Marker (Red Dot)
-    const markerGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    const markerGeo = new THREE.SphereGeometry(0.025, 16, 16);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
     marker = new THREE.Mesh(markerGeo, markerMat);
     marker.visible = false;
@@ -61,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Perfectly center the 3D model geometry
+      // Center model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
@@ -73,17 +71,18 @@ document.addEventListener("DOMContentLoaded", () => {
       planetGroup.add(planetModel);
 
       // ==========================================
-      // STABLE INTERLOCKING ISOSPHERE (VORONOI)
+      // CLEAN GEOMETRIC TECTONIC GRID OVERLAY
       // ==========================================
-      const R = planetRadius * 1.015; // Wrap tightly around the globe
+      const platesGroup = new THREE.Group();
       
-      // Calculate 3D center vectors for every location
+      // Calculate 3D center vectors for locations
       const locVectors = {};
       Object.keys(europaLocations).forEach(name => {
         const loc = europaLocations[name];
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
-        
+        const R = planetRadius * 1.012; // Flush against surface
+
         locVectors[name] = new THREE.Vector3(
           -(R * Math.sin(phi) * Math.cos(theta)),
           (R * Math.cos(phi)),
@@ -91,100 +90,48 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-      // 1. Create a high-res, perfectly connected base sphere
-      let baseGeo = new THREE.IcosahedronGeometry(R, 8); // Higher resolution for jagged edges
+      // Create a clean subdivided sphere for the geometric grid pattern
+      const gridGeo = new THREE.IcosahedronGeometry(planetRadius * 1.01, 3);
+      const wireframeGeo = new THREE.WireframeGeometry(gridGeo);
       
-      // 2. Distort the vertices with 3D math noise to create organic rock formations
-      const posBase = baseGeo.attributes.position;
-      for(let i = 0; i < posBase.count; i++) {
-          let v = new THREE.Vector3().fromBufferAttribute(posBase, i);
-          let noise = Math.sin(v.x * 15) * Math.cos(v.y * 15) * Math.sin(v.z * 15) * (R * 0.015);
-          v.setLength(R + noise);
-          posBase.setXYZ(i, v.x, v.y, v.z);
-      }
-
-      // 3. Convert to non-indexed geometry so we can color individual tectonic plates sharply
-      baseGeo = baseGeo.toNonIndexed();
-      const pos = baseGeo.attributes.position;
-      const vertexCount = pos.count;
-      
-      const colors = new Float32Array(vertexCount * 3);
-      const dimCyan = new THREE.Color(0x00f0ff).multiplyScalar(0.06); // Dim transparent network
-
-      // 4. Shatter the sphere: Assign every triangle to the closest location point
-      for (let i = 0; i < vertexCount; i += 3) {
-          const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
-          const vB = new THREE.Vector3().fromBufferAttribute(pos, i+1);
-          const vC = new THREE.Vector3().fromBufferAttribute(pos, i+2);
-          const triCenter = new THREE.Vector3().addVectors(vA, vB).add(vC).divideScalar(3);
-
-          let closestLoc = null;
-          let minDist = Infinity;
-
-          Object.keys(locVectors).forEach(key => {
-              let dist = triCenter.distanceTo(locVectors[key]);
-              // Add noise to the distance calculation to create organic, jagged borders
-              dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
-              
-              if(dist < minDist) {
-                  minDist = dist;
-                  closestLoc = key;
-              }
-          });
-
-          faceRegions.push(closestLoc);
-
-          // Apply default dim color to the vertices
-          for(let v = 0; v < 3; v++) {
-              colors[(i+v)*3] = dimCyan.r;
-              colors[(i+v)*3+1] = dimCyan.g;
-              colors[(i+v)*3+2] = dimCyan.b;
-          }
-      }
-
-      baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-      // 5. Render the Solid Tectonic Plates
-      const plateMat = new THREE.MeshBasicMaterial({
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.8,
-          wireframe: false,
-          depthWrite: false
+      const gridMat = new THREE.LineBasicMaterial({
+        color: 0xffffff, // White/Neutral base lines (NO BLUE TINT)
+        transparent: true,
+        opacity: 0.25
       });
-      tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
-      planetGroup.add(tectonicMesh);
 
-      // 6. Draw the connected wireframe grid over the whole planet
-      const edges = new THREE.EdgesGeometry(baseGeo, 10);
-      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
-      const wireMesh = new THREE.LineSegments(edges, wireMat);
-      planetGroup.add(wireMesh);
+      const globalGrid = new THREE.LineSegments(wireframeGeo, gridMat);
+      platesGroup.add(globalGrid);
 
-      // 7. Add Text Labels inside their respective plates
-      Object.keys(locVectors).forEach(name => {
+      // Add Text Labels cleanly centered over each location
+      Object.keys(locVectors).forEach(locKey => {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
-        ctx.font = "Bold 38px 'JetBrains Mono', monospace";
+        ctx.font = "Bold 36px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(name.toUpperCase(), 256, 64);
+        ctx.fillText(locKey.toUpperCase(), 256, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.45 
+          map: texture, 
+          color: 0xffffff, // Neutral white text
+          transparent: true, 
+          opacity: 0.5 
         });
         
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(0.8, 0.2, 1);
-        sprite.position.copy(locVectors[name]).setLength(R * 1.05); // Hover text safely above the grid
-        
-        textSprites[name] = { sprite: sprite, texture: texture, ctx: ctx, text: name.toUpperCase() };
-        planetGroup.add(sprite);
+        sprite.scale.set(0.6, 0.15, 1);
+        sprite.position.copy(locVectors[locKey]).setLength(planetRadius * 1.03); 
+        platesGroup.add(sprite);
+
+        tectonicPlates[locKey] = { sprite: sprite, vector: locVectors[locKey] };
       });
+
+      planetGroup.add(platesGroup);
 
     }, undefined, (error) => {
       console.warn("Europa.glb load error.");
@@ -207,54 +154,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Highlight the specific interlocking puzzle piece
+  // Highlight active plate and text when admin command executes
   window.updatePlanetMarker = (locationName) => {
-    if(!locationName || !tectonicMesh) return;
+    if(!locationName) return;
     const cleanName = locationName.toLowerCase();
-    const loc = europaLocations[cleanName];
     
-    // Dim all text back to cyan
-    Object.keys(textSprites).forEach(key => {
-      textSprites[key].sprite.material.color.setHex(0x00f0ff);
-      textSprites[key].sprite.material.opacity = 0.45;
+    // Reset all text to neutral white/dim
+    Object.keys(tectonicPlates).forEach(key => {
+      const p = tectonicPlates[key];
+      p.sprite.material.color.setHex(0xffffff);
+      p.sprite.material.opacity = 0.5;
     });
 
-    if(!loc) {
-      marker.visible = false;
-      return;
+    const loc = europaLocations[cleanName];
+    if(!loc) return;
+
+    // Highlight active text to striking chartreuse
+    const activePlate = tectonicPlates[cleanName];
+    if(activePlate) {
+      activePlate.sprite.material.color.setHex(0xccff00); 
+      activePlate.sprite.material.opacity = 1.0;
     }
 
-    // Color definitions
-    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.7); // Chartreuse
-    const dimCyan = new THREE.Color(0x00f0ff).multiplyScalar(0.06); // Dim base
-    const colors = tectonicMesh.geometry.attributes.color.array;
-
-    // Loop through the mesh faces, if the face belongs to the target region, light it up
-    for (let f = 0; f < faceRegions.length; f++) {
-        const isTarget = (faceRegions[f] === cleanName);
-        const c = isTarget ? activeColor : dimCyan;
-
-        // Apply color to the 3 vertices of this face
-        for(let v = 0; v < 3; v++) {
-            const idx = (f * 3 + v) * 3;
-            colors[idx] = c.r;
-            colors[idx+1] = c.g;
-            colors[idx+2] = c.b;
-        }
-    }
-    tectonicMesh.geometry.attributes.color.needsUpdate = true;
-
-    // Highlight text sprite
-    if(textSprites[cleanName]) {
-       textSprites[cleanName].sprite.material.color.setHex(0xccff00);
-       textSprites[cleanName].sprite.material.opacity = 1.0;
-    }
-
-    // Move marker dot
+    // Move marker dot to exact coordinates
     marker.visible = true;
     const phi = (90 - loc.lat) * (Math.PI / 180);
     const theta = (loc.lon + 180) * (Math.PI / 180);
-    const R = planetRadius * 1.02; 
+    const R = planetRadius * 1.015; 
 
     marker.position.x = -(R * Math.sin(phi) * Math.cos(theta));
     marker.position.z = (R * Math.sin(phi) * Math.sin(theta));
@@ -291,11 +217,13 @@ document.addEventListener("DOMContentLoaded", () => {
         screen.textContent = finalResult;
         calcExp = finalResult.toString();
       } catch (e) {
-        screen.textContent = "ERR"; calcExp = "";
+        screen.textContent = "ERR";
+        calcExp = "";
       }
     } else {
       if (calcExp === "" && ["*", "/", "+"].includes(val)) return;
-      calcExp += val; screen.textContent = calcExp;
+      calcExp += val;
+      screen.textContent = calcExp;
     }
   };
 
@@ -303,7 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
+    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0", 
     projectId: "europa-4b0d3" 
   };
   
@@ -364,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
     [ SYSTEM COMMANDS ]
     write [text]    → Save a new data log
     read            → Read all saved logs
-    rm [#]          → Delete a log by number
+    rm [#]          → Delete a note by number
     store [item]    → Add an item to cargo
     take [#]        → Remove an item from cargo
     inv             → Check cargo hold
@@ -384,24 +312,24 @@ document.addEventListener("DOMContentLoaded", () => {
     write: async (t) => { if (!t) return "Syntax: write [text]"; await db.collection("notes").add({ text: t, timestamp: Date.now() }); return "Log saved."; },
     read: async () => {
       const snap = await db.collection("notes").orderBy("timestamp").get(); cache.notes = snap.docs.map(doc => doc.id);
-      return snap.empty ? "[NULL] No logs exist." : snap.docs.map((doc, i) => `<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> LOG_0${i+1}: ${doc.data().text}`).join("\n");
+      return snap.empty ? "[NULL] No notes exist." : snap.docs.map((doc, i) => `<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> LOG_0${i+1}: ${doc.data().text}`).join("\n");
     },
     rm: async (i) => {
-      const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.notes[idx]) return "Invalid log number.";
-      await db.collection("notes").doc(cache.notes[idx]).delete(); return `Log deleted.`;
+      const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.notes[idx]) return "Invalid note number.";
+      await db.collection("notes").doc(cache.notes[idx]).delete(); return `[EXECUTED] Note_0${idx + 1} deleted.`;
     },
-    store: async (item) => { if (!item) return "Syntax: store [item]"; await db.collection("inventory").add({ text: item, timestamp: Date.now() }); return `'${item}' added to cargo.`; },
+    store: async (item) => { if (!item) return "Syntax: store [item name]"; await db.collection("inventory").add({ text: item, timestamp: Date.now() }); return `[SUCCESS] '${item}' added to cargo.`; },
     inv: async () => {
       const snap = await db.collection("inventory").orderBy("timestamp").get(); cache.inventory = snap.docs.map(doc => doc.id);
-      return snap.empty ? "Cargo empty." : snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().text}`).join("\n");
+      return snap.empty ? "[NULL] Cargo is empty." : snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().text}`).join("\n");
     },
     take: async (i) => {
-      const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.inventory[idx]) return "Invalid cargo number.";
+      const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.inventory[idx]) return "[ERROR] Invalid item number.";
       const name = (await db.collection("inventory").doc(cache.inventory[idx]).get()).data().text;
-      await db.collection("inventory").doc(cache.inventory[idx]).delete(); return `'${name}' removed from cargo.`;
+      await db.collection("inventory").doc(cache.inventory[idx]).delete(); return `[EXECUTED] '${name}' removed from cargo.`;
     },
-    weather: async () => { const doc = await db.collection("meta").doc("temperature").get(); return doc.exists ? `[ATMOSPHERE]: ${doc.data().text}` : "Sensors offline."; },
-    radio: async () => { const doc = await db.collection("meta").doc("broadcast").get(); return doc.exists ? `[INTERCEPT]:\n"${doc.data().text}"` : "No signals detected."; },
+    weather: async () => { const doc = await db.collection("meta").doc("temperature").get(); return doc.exists ? `[WEATHER]: ${doc.data().text}` : "[ERROR] Sensors offline."; },
+    radio: async () => { const doc = await db.collection("meta").doc("broadcast").get(); return doc.exists ? `[RADIO INTERCEPT]:\n"${doc.data().text}"` : "[SILENCE] No signals detected."; },
     
     location: async () => { 
       const doc = await db.collection("meta").doc("location").get(); 
@@ -411,36 +339,36 @@ document.addEventListener("DOMContentLoaded", () => {
     bank: async (input) => {
       const goldRef = db.collection("meta").doc("gold"); const doc = await goldRef.get();
       let current = doc.exists ? doc.data().amount : 0;
-      if (!input) return `[CREDITS]: ${current} available.`;
-      const match = input.trim().match(/^([\+\-]?)(\d+)$/); if (!match) return "Syntax: bank +50";
+      if (!input) return `[BANK]: ${current} Credits available.`;
+      const match = input.trim().match(/^([\+\-]?)(\d+)$/); if (!match) return "Syntax: bank +50 or bank -20";
       if (match[1] === "+") current += parseInt(match[2]); else if (match[1] === "-") current -= parseInt(match[2]); else current = parseInt(match[2]);
-      await goldRef.set({ amount: current, timestamp: Date.now() }); return `Credits updated: ${current}.`;
+      await goldRef.set({ amount: current, timestamp: Date.now() }); return `[SUCCESS] Bank updated: ${current} Credits.`;
     },
     shop: async () => {
-      const snap = await db.collection("shop").orderBy("price").get(); if (snap.empty) return "Requisition list empty.";
-      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — ${doc.data().price} Credits`).join("\n");
+      const snap = await db.collection("shop").orderBy("price").get(); if (snap.empty) return "[NULL] Requisition list is empty.";
+      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#ccff00">${doc.data().price} Credits</span>`).join("\n");
     },
     buy: async (itemName) => {
-      if (!itemName) return "Syntax: buy [item]";
+      if (!itemName) return "Syntax: buy [item name]";
       const goldRef = db.collection("meta").doc("gold"); const currentGold = (await goldRef.get()).data()?.amount || 0;
       const shopSnap = await db.collection("shop").where("name", "==", itemName).limit(1).get();
-      if (shopSnap.empty) return `Item '${itemName}' not found.`;
+      if (shopSnap.empty) return `[ERROR] Item '${itemName}' does not exist in the requisition list.`;
       const { price, name } = shopSnap.docs[0].data();
-      if (currentGold < price) return `Denied. Requires ${price} Credits.`;
+      if (currentGold < price) return `[DENIED] Insufficient funds. Requires ${price} Credits. You have ${currentGold}.`;
       await goldRef.set({ amount: currentGold - price, timestamp: Date.now() });
       await db.collection("inventory").add({ text: name, timestamp: Date.now() });
       await db.collection("shop").doc(shopSnap.docs[0].id).delete();
-      return `Requisitioned '${name}'.\nBalance: ${currentGold - price} Credits.`;
+      return `[SUCCESS] Requisitioned '${name}'.\nRemaining Balance: ${currentGold - price} Credits.`;
     },
-    "admin weather": async (t) => { if(!t) return "Error"; await db.collection("meta").doc("temperature").set({ text: t, timestamp: Date.now() }); return `Atmosphere updated.`; },
-    "admin radio": async (t) => { if(!t) return "Error"; await db.collection("meta").doc("broadcast").set({ text: t, timestamp: Date.now() }); return `Broadcast updated.`; },
-    "admin stock": async (input) => { const [n, p] = input.split(";"); await db.collection("shop").add({ name: n.trim(), price: parseInt(p), timestamp: Date.now() }); return `Stock updated.`; },
+    "admin weather": async (t) => { if(!t) return "Syntax Error"; await db.collection("meta").doc("temperature").set({ text: t, timestamp: Date.now() }); return `[ADMIN] Atmosphere updated.`; },
+    "admin radio": async (t) => { if(!t) return "Syntax Error"; await db.collection("meta").doc("broadcast").set({ text: t, timestamp: Date.now() }); return `[ADMIN] Broadcast updated.`; },
+    "admin stock": async (input) => { const [n, p] = input.split(";"); await db.collection("shop").add({ name: n.trim(), price: parseInt(p), timestamp: Date.now() }); return `[ADMIN] '${n.trim()}' added to requisition list.`; },
     
     "admin location": async (loc) => { 
-      if(!loc) return "Error: admin location [name]"; 
-      if (!europaLocations[loc.toLowerCase()]) return `Error: Unknown coordinates for '${loc}'. Check valid locations in 'help'.`;
+      if(!loc) return "Syntax: admin location [name]"; 
+      if (!europaLocations[loc.toLowerCase()]) return `[ERROR] Unknown coordinates for '${loc}'.`;
       await db.collection("meta").doc("location").set({ name: loc, timestamp: Date.now() }); 
-      return `Tracking beacon deployed to '${loc}'.`; 
+      return `[ADMIN] Tracking beacon deployed to '${loc}'.`; 
     },
     
     clear: () => { terminal.innerHTML = ""; return ""; }
@@ -460,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       try { 
         if (commands[commandKey]) { const result = await commands[commandKey](commandArgs); if (result) log(result); } 
-        else { log(`Unknown command: '${commandKey}'. Type 'help'.`, "error"); } 
+        else { log(`[ERROR] Unknown command: '${commandKey}'. Type 'help'.`, "error"); } 
       } catch (err) { log(`[CRITICAL ERROR]: ${err.message}`, "error"); }
     }
   });
