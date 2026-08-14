@@ -120,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       
       const planetRadius = sphere.radius;
-      const R = planetRadius * 0.75; 
+      const R = planetRadius * 0.55; 
       
       planetGroup.add(planetModel);
 
