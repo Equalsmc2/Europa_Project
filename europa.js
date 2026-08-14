@@ -98,7 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       
       // USER REQUESTED RADIUS: 1.2
-      const R = 1.02; 
+      const R = 2.0; 
       
       // Scale the wrapper so it fits perfectly inside the 1.2 radius grid
       const scaleFactor = (R * 0.985) / sphere.radius; 
