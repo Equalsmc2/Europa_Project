@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   
-  // TECTONIC SECTORS & THEIR APPROXIMATE LAT/LON CENTERS
+  // REAL-WORLD EUROPA LOCATIONS (Approximate Lat/Lon Centers)
   const europaLocations = {
     "conamara chaos": { lat: 9.7, lon: 272.7 },
     "pwyll crater": { lat: -25.2, lon: 271.4 },
@@ -14,8 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "abyssal gate": { lat: -80, lon: 45 } 
   };
 
-  let planetGroup, marker, planetRadius = 1;
-  const tectonicPlates = {}; // Stores lines and sprites for admin control
+  let planetGroup, planetRadius = 1;
+  const tectonicPlates = {}; // Stores the jagged lines and text sprites
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -48,17 +48,11 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // Core Location Marker
-    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
-    marker = new THREE.Mesh(markerGeo, markerMat);
-    marker.visible = false;
-    planetGroup.add(marker);
-
     const loader = new THREE.GLTFLoader();
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
+      // Center the solid geometry to ensure accurate coordinate mapping
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
@@ -68,13 +62,13 @@ document.addEventListener("DOMContentLoaded", () => {
       
       planetGroup.add(planetModel);
 
-      // GENERATE JAGGED TECTONIC BOUNDARIES & TEXT LABELS
+      // GENERATE JAGGED TECTONIC BOUNDARIES & IN-PLATE TEXT
       const platesGroup = new THREE.Group();
       
       Object.keys(europaLocations).forEach((locKey) => {
         const loc = europaLocations[locKey];
         
-        // 1. Calculate Target Position on Sphere
+        // 1. Convert Lat/Lon to standard 3D Space Coordinates
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
         const R = planetRadius;
@@ -84,55 +78,67 @@ document.addEventListener("DOMContentLoaded", () => {
         const ty = (R * Math.cos(phi));
         const targetPos = new THREE.Vector3(tx, ty, tz);
 
-        // 2. Procedurally Generate a Jagged Line Boundary
+        // 2. Procedurally Generate a Jagged Tectonic Boundary Line
         const points = [];
-        const numPoints = 40; // Detail of the jagged edge
-        const basePlateRadius = R * (0.25 + Math.random() * 0.15); // Random plate size
+        const numPoints = 45; // Detail of the jagged edge
+        const basePlateRadius = R * (0.2 + Math.random() * 0.15); // Randomize sector sizes
 
-        for(let i = 0; i <= numPoints; i++) {
+        for(let i = 0; i < numPoints; i++) {
           const angle = (i / numPoints) * Math.PI * 2;
-          // Add heavy randomization for that natural jagged tectonic look
-          const jaggedRadius = basePlateRadius * (1 + (Math.random() * 0.5 - 0.25)); 
+          // Apply heavy randomization for a natural, jagged tectonic look
+          const jaggedRadius = basePlateRadius * (0.6 + Math.random() * 0.6); 
           
           const x = Math.cos(angle) * jaggedRadius;
           const y = Math.sin(angle) * jaggedRadius;
-          // Project flat circle onto spherical cap
+          
+          // Mathematically wrap the flat jagged circle onto the sphere's curvature
           const z = Math.sqrt(Math.max(0, R*R - x*x - y*y)); 
           
-          points.push(new THREE.Vector3(x, y, z).setLength(R * 1.01)); // Hover slightly above surface
+          // Push points slightly above the surface to prevent clipping
+          points.push(new THREE.Vector3(x, y, z).setLength(R * 1.01)); 
         }
         
         const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.35 });
-        const lineMesh = new THREE.Line(lineGeo, lineMat);
+        const lineMat = new THREE.LineBasicMaterial({ 
+          color: 0x00f0ff, // Cyber cyan
+          transparent: true, 
+          opacity: 0.25 
+        });
+        
+        // Use LineLoop to connect the last point back to the first point
+        const lineLoop = new THREE.LineLoop(lineGeo, lineMat);
 
-        // Snap the flat generated boundary to the correct Lat/Lon on the planet
-        lineMesh.position.set(0, 0, 0);
-        lineMesh.lookAt(targetPos);
-        platesGroup.add(lineMesh);
+        // Snap the generated boundary to the correct surface coordinates
+        lineLoop.position.set(0, 0, 0);
+        lineLoop.lookAt(targetPos);
+        platesGroup.add(lineLoop);
 
-        // 3. Generate the Text Label (Sprite)
+        // 3. Generate the Text Label INSIDE the Plate (Sprite)
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#00f0ff'; // Cyan default
-        ctx.font = "Bold 40px 'JetBrains Mono', monospace";
+        ctx.fillStyle = '#ffffff'; // Draw in white so we can tint it later
+        ctx.font = "Bold 44px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(locKey.toUpperCase(), 256, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
-        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.6 });
-        const sprite = new THREE.Sprite(spriteMat);
+        const spriteMat = new THREE.SpriteMaterial({ 
+          map: texture, 
+          color: 0x00f0ff, // Tint it cyan
+          transparent: true, 
+          opacity: 0.35 
+        });
         
-        // Scale and position the text slightly higher than the boundary so it pops
+        const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(1.2, 0.3, 1);
-        sprite.position.copy(targetPos).setLength(R * 1.06); 
+        sprite.position.copy(targetPos).setLength(R * 1.05); // Hover text slightly higher
         platesGroup.add(sprite);
 
-        // Store references to update colors dynamically during admin commands
-        tectonicPlates[locKey] = { line: lineMesh, sprite: sprite, ctx: ctx, texture: texture };
+        // Store references for the admin command to highlight them
+        tectonicPlates[locKey] = { loop: lineLoop, sprite: sprite };
       });
 
       planetGroup.add(platesGroup);
@@ -162,47 +168,29 @@ document.addEventListener("DOMContentLoaded", () => {
   window.updatePlanetMarker = (locationName) => {
     if(!locationName) return;
     const cleanName = locationName.toLowerCase();
-    const loc = europaLocations[cleanName];
     
-    // Reset all plates and text to default Cyan
+    // 1. Reset all plates and text to dim Cyan
     Object.keys(tectonicPlates).forEach(key => {
       const p = tectonicPlates[key];
-      p.line.material.color.setHex(0x00f0ff);
-      p.line.material.opacity = 0.35;
+      p.loop.material.color.setHex(0x00f0ff);
+      p.loop.material.opacity = 0.25;
       
-      p.ctx.clearRect(0, 0, 512, 128);
-      p.ctx.fillStyle = '#00f0ff';
-      p.ctx.fillText(key.toUpperCase(), 256, 64);
-      p.texture.needsUpdate = true;
-      p.sprite.material.opacity = 0.6;
+      p.sprite.material.color.setHex(0x00f0ff);
+      p.sprite.material.opacity = 0.35;
     });
 
-    if(!loc || !marker) { 
-      marker.visible = false; 
-      return; 
-    }
+    const loc = europaLocations[cleanName];
+    if(!loc) return;
 
-    // Highlight the active tectonic plate and text to Chartreuse
+    // 2. Highlight the active tectonic plate and text to bright Chartreuse
     const activePlate = tectonicPlates[cleanName];
     if(activePlate) {
-      activePlate.line.material.color.setHex(0xccff00); 
-      activePlate.line.material.opacity = 1.0;
+      activePlate.loop.material.color.setHex(0xccff00); 
+      activePlate.loop.material.opacity = 1.0;
       
-      activePlate.ctx.clearRect(0, 0, 512, 128);
-      activePlate.ctx.fillStyle = '#ccff00';
-      activePlate.ctx.fillText(cleanName.toUpperCase(), 256, 64);
-      activePlate.texture.needsUpdate = true;
+      activePlate.sprite.material.color.setHex(0xccff00);
       activePlate.sprite.material.opacity = 1.0;
     }
-
-    marker.visible = true;
-    const phi = (90 - loc.lat) * (Math.PI / 180);
-    const theta = (loc.lon + 180) * (Math.PI / 180);
-    const R = planetRadius * 1.04; 
-
-    marker.position.x = -(R * Math.sin(phi) * Math.cos(theta));
-    marker.position.z = (R * Math.sin(phi) * Math.sin(theta));
-    marker.position.y = (R * Math.cos(phi));
   };
 
 
@@ -323,7 +311,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     [ VALID LOCATIONS ]
     Conamara Chaos, Pwyll Crater, Thera Macula, Thrace Macula, 
-    Cilix Crater, Minos Linea, Rhadamanthys Linea, Castalia Macula`,
+    Cilix Crater, Minos Linea, Rhadamanthys Linea, Castalia Macula,
+    Outpost Zero, Abyssal Gate`,
     
     write: async (t) => { if (!t) return "Syntax: write [text]"; await db.collection("notes").add({ text: t, timestamp: Date.now() }); return "Log saved."; },
     read: async () => {
