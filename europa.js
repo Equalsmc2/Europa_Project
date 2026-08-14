@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 4.0;
+    camera.position.z = 3.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -82,33 +82,24 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // FIX: Perfectly center the 3D model geometry using a wrapper
+      // Perfectly center the 3D model geometry based on its own boundaries
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
+      planetModel.position.sub(center);
       
-      // Shift the model's actual geometry so it sits perfectly at 0,0,0
-      planetModel.position.x = -center.x;
-      planetModel.position.y = -center.y;
-      planetModel.position.z = -center.z;
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      let planetRadius = size.x / 2;
       
-      // Place it in a wrapper so we can scale it cleanly from the true center
-      const modelWrapper = new THREE.Group();
-      modelWrapper.add(planetModel);
-      
-      const sphere = box.getBoundingSphere(new THREE.Sphere());
-      
-      // USER REQUESTED RADIUS: 1.2
-      const R = 2.0; 
-      
-      // Scale the wrapper so it fits perfectly inside the 1.2 radius grid
-      const scaleFactor = (R * 0.985) / sphere.radius; 
-      modelWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
-      planetGroup.add(modelWrapper);
+      planetGroup.add(planetModel);
 
       // ==========================================
       // SEAMLESS VORONOI TECTONIC PLATES
       // ==========================================
       const platesGroup = new THREE.Group();
+      
+      // FIXED RADIUS: Exactly 1.02 times the planet's native radius
+      const R = planetRadius * 1.02; 
       
       const locNames = Object.keys(europaLocations);
       const locVectors = {};
@@ -124,7 +115,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-      // Track data to center the text and draw hover borders
       const regionCentroids = {};
       const regionCounts = {};
       const regionTriangles = {};
@@ -139,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
       
       // 2. Add faint Hex/Geodesic wireframe overlay
-      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.1 });
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
       const wireMesh = new THREE.LineSegments(new THREE.WireframeGeometry(baseGeo), wireMat);
       platesGroup.add(wireMesh);
 
@@ -194,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Average the face centers to find the TRUE center of the jagged plate
         if (regionCounts[name] > 0) {
             regionCentroids[name].divideScalar(regionCounts[name]);
-            regionCentroids[name].setLength(R * 1.05); // Push text up so it hovers
+            regionCentroids[name].setLength(R * 1.05); // Push text up so it hovers slightly
         }
 
         // --- THE DOTTED/DASHED HOVER BORDER ---
