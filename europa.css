@@ -79,13 +79,17 @@ body {
 }
 
 .viewport-footer {
-  font-size: 0.75rem;
-  color: var(--text-dim);
+  font-size: 0.9rem;
+  color: var(--accent-striking);
+  font-family: var(--font-header);
+  font-weight: bold;
   text-align: center;
-  letter-spacing: 2px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  padding-top: 12px;
+  letter-spacing: 3px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 15px;
   width: 100%;
+  text-shadow: 0 0 10px rgba(204, 255, 0, 0.5);
+  animation: slow-pulse 3s infinite alternate;
 }
 
 header {
@@ -131,7 +135,7 @@ h3 { font-size: 1.2rem; }
 
 .line { margin-bottom: 8px; line-height: 1.5; word-wrap: break-word; }
 .line.system { color: var(--text-dim); font-style: italic; border-left: 2px solid var(--accent-cyan); padding-left: 10px;}
-.line.error { color: #ff3366; font-weight: bold; }
+.line.error { color: #ff3366; font-weight: bold; text-shadow: 0 0 8px rgba(255,51,102,0.5);}
 .line.gold { color: var(--accent-striking); font-family: var(--font-header); font-weight: bold; letter-spacing: 1px; margin-top: 15px; border-bottom: 1px solid rgba(204, 255, 0, 0.3); padding-bottom: 4px;}
 .line.user { color: #fff; font-weight: bold; }
 .timestamp { color: var(--text-dim); font-size: 0.8em; margin-right: 8px; }
@@ -213,3 +217,4 @@ input::placeholder { color: var(--text-dim); font-weight: normal; }
 .calc-grid .equal { background: var(--accent-striking); color: var(--dark-bg); border: none;}
 
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes slow-pulse { 0% { opacity: 0.7; text-shadow: 0 0 5px rgba(204, 255, 0, 0.3); } 100% { opacity: 1; text-shadow: 0 0 15px rgba(204, 255, 0, 0.8); } }
