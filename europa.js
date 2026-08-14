@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "abyssal gate": { lat: -80, lon: 45 } 
   };
 
-  let planetGroup, marker, planetRadius = 1;
+  let planetGroup, planetRadius = 1;
   let tectonicMesh, faceRegions = []; 
   const textSprites = {}; 
 
@@ -49,13 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // Location Marker (Red Dot)
-    const markerGeo = new THREE.SphereGeometry(0.025, 16, 16);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
-    marker = new THREE.Mesh(markerGeo, markerMat);
-    marker.visible = false;
-    planetGroup.add(marker);
-
     const loader = new THREE.GLTFLoader();
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
@@ -71,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
       planetGroup.add(planetModel);
 
       // ==========================================
-      // SECTOR MESH GENERATION (NO BLUE TINT)
+      // HEX GRID TECTONIC MESH & CENTERED LABELS
       // ==========================================
       const R = planetRadius * 1.02; 
       
@@ -88,6 +81,14 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
+      // Track the actual geometric center of each region for text placement
+      const regionCenters = {};
+      const regionCounts = {};
+      Object.keys(europaLocations).forEach(name => {
+        regionCenters[name] = new THREE.Vector3(0,0,0);
+        regionCounts[name] = 0;
+      });
+
       let baseGeo = new THREE.IcosahedronGeometry(R, 8);
       const posBase = baseGeo.attributes.position;
       for(let i = 0; i < posBase.count; i++) {
@@ -102,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const vertexCount = pos.count;
       
       const colors = new Float32Array(vertexCount * 3);
-      const transparentBlack = new THREE.Color(0x000000); // Completely invisible by default
+      const transparentBlack = new THREE.Color(0x000000); 
 
       for (let i = 0; i < vertexCount; i += 3) {
           const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
@@ -123,6 +124,10 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           faceRegions.push(closestLoc);
+          
+          // Accumulate face centers to find the true mathematical center of the region highlight
+          regionCenters[closestLoc].add(triCenter);
+          regionCounts[closestLoc]++;
 
           for(let v = 0; v < 3; v++) {
               colors[(i+v)*3] = transparentBlack.r;
@@ -143,28 +148,39 @@ document.addEventListener("DOMContentLoaded", () => {
       tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
       planetGroup.add(tectonicMesh);
 
-      // Add Text Labels inside their respective plates (Hidden until selected)
+      // Add Hex Grid wireframe over the whole sphere
+      const edges = new THREE.EdgesGeometry(baseGeo, 10);
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
+      const wireMesh = new THREE.LineSegments(edges, wireMat);
+      planetGroup.add(wireMesh);
+
+      // Place Text Sprites at the TRUE center of each highlight region
       Object.keys(locVectors).forEach(name => {
+        if (regionCounts[name] > 0) {
+            regionCenters[name].divideScalar(regionCounts[name]); // Calculate true average center
+            regionCenters[name].setLength(R * 1.03);
+        }
+
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ccff00'; // Chartreuse text
-        ctx.font = "Bold 36px 'JetBrains Mono', monospace";
+        ctx.fillStyle = '#ccff00'; 
+        ctx.font = "Bold 34px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(name.toUpperCase(), 256, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0xccff00, transparent: true, opacity: 0 // Hidden by default
+          map: texture, color: 0xccff00, transparent: true, opacity: 0 
         });
         
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
-        sprite.position.copy(locVectors[name]).setLength(R * 1.04); 
+        sprite.position.copy(regionCenters[name]); 
         
-        textSprites[name] = { sprite: sprite, texture: texture, ctx: ctx };
+        textSprites[name] = { sprite: sprite };
         planetGroup.add(sprite);
       });
 
@@ -189,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Highlight only the active plate with green/chartreuse
+  // Highlight active plate and center-aligned text
   window.updatePlanetMarker = (locationName) => {
     if(!locationName || !tectonicMesh) return;
     const cleanName = locationName.toLowerCase();
@@ -200,12 +216,9 @@ document.addEventListener("DOMContentLoaded", () => {
       textSprites[key].sprite.material.opacity = 0;
     });
 
-    if(!loc) {
-      marker.visible = false;
-      return;
-    }
+    if(!loc) return;
 
-    const activeColor = new THREE.Color(0xccff00); // Neon Chartreuse
+    const activeColor = new THREE.Color(0xccff00); 
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
@@ -222,20 +235,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     tectonicMesh.geometry.attributes.color.needsUpdate = true;
 
-    // Show text sprite for active region
+    // Show centered text sprite for active region
     if(textSprites[cleanName]) {
        textSprites[cleanName].sprite.material.opacity = 1.0;
     }
-
-    // Move marker dot
-    marker.visible = true;
-    const phi = (90 - loc.lat) * (Math.PI / 180);
-    const theta = (loc.lon + 180) * (Math.PI / 180);
-    const R = planetRadius * 1.015; 
-
-    marker.position.x = -(R * Math.sin(phi) * Math.cos(theta));
-    marker.position.z = (R * Math.sin(phi) * Math.sin(theta));
-    marker.position.y = (R * Math.cos(phi));
   };
 
   // ==========================================
