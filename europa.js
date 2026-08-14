@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   
-  // REAL-WORLD EUROPA LOCATIONS (Approximate Lat/Lon Centers)
+  // TECTONIC SECTORS & THEIR LAT/LON CENTERS
   const europaLocations = {
     "conamara chaos": { lat: 9.7, lon: 272.7 },
     "pwyll crater": { lat: -25.2, lon: 271.4 },
@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let planetGroup, planetRadius = 1;
-  const tectonicPlates = {}; // Stores the jagged lines and text sprites
+  const tectonicPlates = {}; 
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 4;
+    camera.position.z = 4.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -37,12 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
     controls.minDistance = 2;
     controls.maxDistance = 10;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
+    controls.autoRotateSpeed = 0.4;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(5, 5, 3);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(5, 5, 5);
     scene.add(dirLight);
 
     planetGroup = new THREE.Group();
@@ -52,23 +52,24 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Center the solid geometry to ensure accurate coordinate mapping
+      // Center the model geometry cleanly using its bounding box
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
+      // Extract the precise radius from your GLB geometry bounds
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       planetRadius = sphere.radius;
       
       planetGroup.add(planetModel);
 
-      // GENERATE JAGGED TECTONIC BOUNDARIES & IN-PLATE TEXT
+      // GENERATE JAGGED TECTONIC BOUNDARIES & TEXT LABELS FLUSH TO SURFACE
       const platesGroup = new THREE.Group();
       
       Object.keys(europaLocations).forEach((locKey) => {
         const loc = europaLocations[locKey];
         
-        // 1. Convert Lat/Lon to standard 3D Space Coordinates
+        // Convert Lat/Lon to 3D space
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
         const R = planetRadius;
@@ -78,48 +79,43 @@ document.addEventListener("DOMContentLoaded", () => {
         const ty = (R * Math.cos(phi));
         const targetPos = new THREE.Vector3(tx, ty, tz);
 
-        // 2. Procedurally Generate a Jagged Tectonic Boundary Line
+        // Procedural Jagged Tectonic Line Loop
         const points = [];
-        const numPoints = 45; // Detail of the jagged edge
-        const basePlateRadius = R * (0.2 + Math.random() * 0.15); // Randomize sector sizes
+        const numPoints = 35; 
+        const baseRadius = R * 0.35; // Sized nicely to fit segments onto the sphere
 
         for(let i = 0; i < numPoints; i++) {
           const angle = (i / numPoints) * Math.PI * 2;
-          // Apply heavy randomization for a natural, jagged tectonic look
-          const jaggedRadius = basePlateRadius * (0.6 + Math.random() * 0.6); 
+          // Add procedural noise to make boundaries jagged like tectonic plates
+          const noise = baseRadius * (0.7 + (Math.sin(i * 3) * 0.3) + (Math.random() * 0.2)); 
           
-          const x = Math.cos(angle) * jaggedRadius;
-          const y = Math.sin(angle) * jaggedRadius;
-          
-          // Mathematically wrap the flat jagged circle onto the sphere's curvature
+          const x = Math.cos(angle) * noise;
+          const y = Math.sin(angle) * noise;
           const z = Math.sqrt(Math.max(0, R*R - x*x - y*y)); 
           
-          // Push points slightly above the surface to prevent clipping
-          points.push(new THREE.Vector3(x, y, z).setLength(R * 1.01)); 
+          // Align directly flush against the model's outer shell (R * 1.002)
+          points.push(new THREE.Vector3(x, y, z).setLength(R * 1.002)); 
         }
         
         const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
         const lineMat = new THREE.LineBasicMaterial({ 
-          color: 0x00f0ff, // Cyber cyan
+          color: 0x00f0ff, 
           transparent: true, 
-          opacity: 0.25 
+          opacity: 0.45 
         });
         
-        // Use LineLoop to connect the last point back to the first point
         const lineLoop = new THREE.LineLoop(lineGeo, lineMat);
-
-        // Snap the generated boundary to the correct surface coordinates
         lineLoop.position.set(0, 0, 0);
         lineLoop.lookAt(targetPos);
         platesGroup.add(lineLoop);
 
-        // 3. Generate the Text Label INSIDE the Plate (Sprite)
+        // Canvas Text Sprite inside the Plate
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff'; // Draw in white so we can tint it later
-        ctx.font = "Bold 44px 'JetBrains Mono', monospace";
+        ctx.fillStyle = '#ffffff';
+        ctx.font = "Bold 40px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(locKey.toUpperCase(), 256, 64);
@@ -127,24 +123,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
           map: texture, 
-          color: 0x00f0ff, // Tint it cyan
+          color: 0x00f0ff, 
           transparent: true, 
-          opacity: 0.35 
+          opacity: 0.7 
         });
         
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(1.2, 0.3, 1);
-        sprite.position.copy(targetPos).setLength(R * 1.05); // Hover text slightly higher
+        sprite.scale.set(0.9, 0.22, 1);
+        // Position text precisely in the center of the plate region
+        sprite.position.copy(targetPos).setLength(R * 1.02); 
         platesGroup.add(sprite);
 
-        // Store references for the admin command to highlight them
         tectonicPlates[locKey] = { loop: lineLoop, sprite: sprite };
       });
 
       planetGroup.add(platesGroup);
 
     }, undefined, (error) => {
-      console.warn("Europa.glb not found in root directory.");
+      console.warn("Europa.glb load error.");
     });
 
     const animate = () => {
@@ -164,35 +160,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Function to activate target plate and move marker
+  // Highlight active plate and text when admin command executes
   window.updatePlanetMarker = (locationName) => {
     if(!locationName) return;
     const cleanName = locationName.toLowerCase();
     
-    // 1. Reset all plates and text to dim Cyan
     Object.keys(tectonicPlates).forEach(key => {
       const p = tectonicPlates[key];
       p.loop.material.color.setHex(0x00f0ff);
       p.loop.material.opacity = 0.25;
-      
       p.sprite.material.color.setHex(0x00f0ff);
-      p.sprite.material.opacity = 0.35;
+      p.sprite.material.opacity = 0.4;
     });
 
     const loc = europaLocations[cleanName];
     if(!loc) return;
 
-    // 2. Highlight the active tectonic plate and text to bright Chartreuse
     const activePlate = tectonicPlates[cleanName];
     if(activePlate) {
       activePlate.loop.material.color.setHex(0xccff00); 
       activePlate.loop.material.opacity = 1.0;
-      
       activePlate.sprite.material.color.setHex(0xccff00);
       activePlate.sprite.material.opacity = 1.0;
     }
   };
-
 
   // ==========================================
   // UI & TOOLS
