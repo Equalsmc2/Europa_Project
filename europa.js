@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scene.add(planetGroup);
 
     // ==========================================
-    // Ambient Cryo Dust Particles (Upgraded to Soft Glowing Spheres)
+    // Ambient Cryo Dust Particles (Soft Glowing Spheres)
     // ==========================================
     const particleCount = 1500;
     const particleGeo = new THREE.BufferGeometry();
@@ -75,7 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
 
-    // Create a procedural soft-circle texture to eliminate square blocks
     const canvas = document.createElement('canvas');
     canvas.width = 64;
     canvas.height = 64;
@@ -114,14 +113,12 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Perfectly center the 3D model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       
-      // Strict 1.02 multiplier based directly on the loaded model's size
       const planetRadius = sphere.radius;
       const R = planetRadius * 1.02; 
       
@@ -152,7 +149,6 @@ document.addEventListener("DOMContentLoaded", () => {
         tectonicPlates[n] = {};
       });
 
-      // Flawless smooth geometric grid
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
       
       const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
@@ -175,7 +171,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
           locNames.forEach(key => {
               let dist = triCenter.distanceTo(locVectors[key]);
-              // Add slight boundary disruption so it still forms natural puzzle pieces
               dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
               if(dist < minDist) {
                   minDist = dist;
@@ -250,8 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
       requestAnimationFrame(animate);
       controls.update();
       
-      particles.rotation.y += 0.0005;
-      particles.rotation.x += 0.0002;
+      // Removed the independent particle rotation here so they spin with the planet
 
       if (tectonicMesh) {
           raycaster.setFromCamera(mouse, camera);
@@ -542,4 +536,29 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ==========================================
+  // REACTIVE LIQUID GLASS EFFECT
+  // ==========================================
+  const glassPanels = document.querySelectorAll('.liquid-glass');
+  glassPanels.forEach(panel => {
+    panel.addEventListener('mousemove', (e) => {
+      const rect = panel.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Calculate rotation (max 4 degrees)
+      const rotateX = ((y / rect.height) - 0.5) * -8; 
+      const rotateY = ((x / rect.width) - 0.5) * 8;
+      
+      panel.style.transition = 'none';
+      panel.style.transform = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+    });
+
+    panel.addEventListener('mouseleave', () => {
+      panel.style.transition = 'transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)';
+      panel.style.transform = `perspective(1200px) rotateX(0deg) rotateY(0deg)`;
+    });
+  });
+
 });
