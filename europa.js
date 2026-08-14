@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   
-  // REAL-WORLD EUROPA LOCATIONS (Approximate Lat/Lon)
+  // TECTONIC SECTORS & THEIR APPROXIMATE LAT/LON CENTERS
   const europaLocations = {
     "conamara chaos": { lat: 9.7, lon: 272.7 },
     "pwyll crater": { lat: -25.2, lon: 271.4 },
@@ -14,11 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "abyssal gate": { lat: -80, lon: 45 } 
   };
 
-  // ==========================================
-  // THREE.JS - SOLID PLANET WITH GRID OVERLAY
-  // ==========================================
-  
   let planetGroup, marker, planetRadius = 1;
+  const tectonicPlates = {}; // Stores individual plate meshes for targeted admin control
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -27,23 +24,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 4; // Zoomed appropriately for a solid model
+    camera.position.z = 4;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
-    // OrbitControls: Allows user to click and spin the planet
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
-    controls.minDistance = 2; // Prevents zooming too close
-    controls.maxDistance = 10; // Prevents zooming too far out
-    controls.autoRotate = true; // Slowly spins the planet automatically when untouched
+    controls.minDistance = 2;
+    controls.maxDistance = 10;
+    controls.autoRotate = true;
     controls.autoRotateSpeed = 0.5;
 
-    // Lighting (Required to see the solid model)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -53,39 +48,67 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // Create the Location Marker (A bright pink glowing sphere)
+    // Location Marker
     const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
     marker = new THREE.Mesh(markerGeo, markerMat);
-    marker.visible = false; // Hidden by default until a location is set
+    marker.visible = false;
     planetGroup.add(marker);
 
     const loader = new THREE.GLTFLoader();
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Center the solid geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
-      // Calculate the radius based on the model's exact size
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       planetRadius = sphere.radius;
       
-      // Overlay a tactical wireframe grid just barely larger than the planet surface
-      const gridGeo = new THREE.SphereGeometry(planetRadius * 1.01, 32, 32); 
-      const gridMat = new THREE.MeshBasicMaterial({
-        color: 0xccff00, // Chartreuse grid
-        wireframe: true,
-        transparent: true,
-        opacity: 0.15 // Faint sci-fi grid overlay
-      });
-      const gridMesh = new THREE.Mesh(gridGeo, gridMat);
-
-      // Add both the solid model and the grid overlay to the group
       planetGroup.add(planetModel);
-      planetGroup.add(gridMesh);
+
+      // GENERATE SEPARATED TECTONIC PLATES OVER THE PLANET
+      const platesGroup = new THREE.Group();
+      
+      Object.keys(europaLocations).forEach((locKey) => {
+        const loc = europaLocations[locKey];
+        
+        // Create an individual curved plate segment (BoxGeometry bent/positioned around sphere)
+        const plateWidth = 0.4;
+        const plateHeight = 0.4;
+        const plateGeo = new THREE.BoxGeometry(plateWidth, plateHeight, 0.02);
+        
+        const plateMat = new THREE.MeshStandardMaterial({
+          color: 0x00f0ff, // Cyber cyan base plate color
+          roughness: 0.3,
+          metalness: 0.8,
+          wireframe: false,
+          transparent: true,
+          opacity: 0.65
+        });
+
+        const plateMesh = new THREE.Mesh(plateGeo, plateMat);
+
+        // Position plate accurately based on Lat/Lon coordinates
+        const phi = (90 - loc.lat) * (Math.PI / 180);
+        const theta = (loc.lon + 180) * (Math.PI / 180);
+        const R = planetRadius * 1.02;
+
+        plateMesh.position.x = -(R * Math.sin(phi) * Math.cos(theta));
+        plateMesh.position.z = (R * Math.sin(phi) * Math.sin(theta));
+        plateMesh.position.y = (R * Math.cos(phi));
+
+        // Orient plate to face directly outwards from core center
+        plateMesh.lookAt(0, 0, 0);
+        plateMesh.rotateY(Math.PI); // Flip orientation so face points outward
+
+        // Store reference for admin activation
+        tectonicPlates[locKey] = plateMesh;
+        platesGroup.add(plateMesh);
+      });
+
+      planetGroup.add(platesGroup);
 
     }, undefined, (error) => {
       console.warn("Europa.glb not found in root directory.");
@@ -93,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const animate = () => {
       requestAnimationFrame(animate);
-      controls.update(); // Necessary for autoRotate and smooth damping
+      controls.update();
       renderer.render(scene, camera);
     };
     animate();
@@ -108,24 +131,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Function to move the 3D marker based on Lat/Lon
+  // Function to activate target plate and move marker
   window.updatePlanetMarker = (locationName) => {
-    if(!locationName || !marker) return;
+    if(!locationName) return;
+    const cleanName = locationName.toLowerCase();
+    const loc = europaLocations[cleanName];
     
-    const loc = europaLocations[locationName.toLowerCase()];
-    if(!loc) { 
+    // Reset all plates to default appearance
+    Object.keys(tectonicPlates).forEach(key => {
+      const p = tectonicPlates[key];
+      p.material.color.setHex(0x00f0ff);
+      p.material.opacity = 0.65;
+      p.scale.set(1, 1, 1);
+    });
+
+    if(!loc || !marker) { 
       marker.visible = false; 
       return; 
     }
 
+    // Highlight the active tectonic plate
+    const activePlate = tectonicPlates[cleanName];
+    if(activePlate) {
+      activePlate.material.color.setHex(0xccff00); // Shift active plate to striking chartreuse
+      activePlate.material.opacity = 0.95;
+      activePlate.scale.set(1.2, 1.2, 1.5); // Pop the section out slightly
+    }
+
     marker.visible = true;
-    
-    // Convert Lat/Lon to 3D Sphere Coordinates
     const phi = (90 - loc.lat) * (Math.PI / 180);
     const theta = (loc.lon + 180) * (Math.PI / 180);
-    
-    // Push the marker slightly above the surface and the grid
-    const R = planetRadius * 1.03; 
+    const R = planetRadius * 1.04; 
 
     marker.position.x = -(R * Math.sin(phi) * Math.cos(theta));
     marker.position.z = (R * Math.sin(phi) * Math.sin(theta));
@@ -174,7 +210,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
-  // UPDATE WITH YOUR KEYS HERE
   const config = {
     apiKey: "YOUR_API_KEY", 
     projectId: "europa-4b0d3" 
@@ -221,7 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) { log(`[FATAL ERROR] DB Connection lost: ${err.message}`, "error"); }
   };
 
-  // Real-time listener for the location marker
   db.collection("meta").doc("location").onSnapshot((doc) => {
     const locFooter = document.getElementById("europa-location-text");
     if (doc.exists) {
@@ -340,7 +374,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadData();
 
-  // Chat Sync
   const chatBox = document.getElementById("chat-messages");
   const chatInput = document.getElementById("chat-input");
   if (chatBox && chatInput) {
