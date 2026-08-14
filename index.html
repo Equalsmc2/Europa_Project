@@ -11,9 +11,8 @@
   
   <link rel="stylesheet" href="europa.css"/>
 
-  <!-- Three.js for the Dot Matrix GLB -->
+  <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
   
@@ -33,7 +32,7 @@
         <div id="terminal-housing">
           <div id="terminal">
             <div class="line system">Establishing secure Omninet connection...</div>
-            <div class="line system">Initializing dark-matrix terminal interface...</div>
+            <div class="line system">Initializing orbital mapping grid...</div>
           </div>
         </div>
         
@@ -56,11 +55,11 @@
       </div>
     </div>
 
-    <!-- Right Column: Dedicated 3D Europa Dot Matrix Viewport -->
+    <!-- Right Column: Interactive Globe Viewport -->
     <div id="europa-viewport-wrapper">
       <header>
         <h3>EUROPA TOPOLOGY</h3>
-        <small>DOT-MATRIX TELEMETRY</small>
+        <small>TACTICAL GRID // DRAG TO ROTATE</small>
       </header>
       <div id="europa-3d"></div>
       <div class="viewport-footer">
@@ -109,7 +108,7 @@
         <button onclick="calc('1')">1</button>
         <button onclick="calc('2')">2</button>
         <button onclick="calc('3')">3</button>
-        <button class="op" onclick="calc('-')">-</button>
+        <button onclick="calc('op')">-</button>
         
         <button class="clear" onclick="calc('C')">C</button>
         <button onclick="calc('0')">0</button>
