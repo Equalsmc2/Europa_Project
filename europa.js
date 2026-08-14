@@ -15,7 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let planetGroup, marker, planetRadius = 1;
-  const tectonicPlates = {}; 
+  let tectonicMesh, faceRegions = []; 
+  const textSprites = {}; 
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -59,7 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Center model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
@@ -71,18 +71,16 @@ document.addEventListener("DOMContentLoaded", () => {
       planetGroup.add(planetModel);
 
       // ==========================================
-      // CLEAN GEOMETRIC TECTONIC GRID OVERLAY
+      // SECTOR MESH GENERATION (NO BLUE TINT)
       // ==========================================
-      const platesGroup = new THREE.Group();
+      const R = planetRadius * 1.02; 
       
-      // Calculate 3D center vectors for locations
       const locVectors = {};
       Object.keys(europaLocations).forEach(name => {
         const loc = europaLocations[name];
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
-        const R = planetRadius * 1.012; // Flush against surface
-
+        
         locVectors[name] = new THREE.Vector3(
           -(R * Math.sin(phi) * Math.cos(theta)),
           (R * Math.cos(phi)),
@@ -90,48 +88,85 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-      // Create a clean subdivided sphere for the geometric grid pattern
-      const gridGeo = new THREE.IcosahedronGeometry(planetRadius * 1.01, 3);
-      const wireframeGeo = new THREE.WireframeGeometry(gridGeo);
+      let baseGeo = new THREE.IcosahedronGeometry(R, 8);
+      const posBase = baseGeo.attributes.position;
+      for(let i = 0; i < posBase.count; i++) {
+          let v = new THREE.Vector3().fromBufferAttribute(posBase, i);
+          let noise = Math.sin(v.x * 15) * Math.cos(v.y * 15) * Math.sin(v.z * 15) * (R * 0.015);
+          v.setLength(R + noise);
+          posBase.setXYZ(i, v.x, v.y, v.z);
+      }
+
+      baseGeo = baseGeo.toNonIndexed();
+      const pos = baseGeo.attributes.position;
+      const vertexCount = pos.count;
       
-      const gridMat = new THREE.LineBasicMaterial({
-        color: 0xffffff, // White/Neutral base lines (NO BLUE TINT)
-        transparent: true,
-        opacity: 0.25
+      const colors = new Float32Array(vertexCount * 3);
+      const transparentBlack = new THREE.Color(0x000000); // Completely invisible by default
+
+      for (let i = 0; i < vertexCount; i += 3) {
+          const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
+          const vB = new THREE.Vector3().fromBufferAttribute(pos, i+1);
+          const vC = new THREE.Vector3().fromBufferAttribute(pos, i+2);
+          const triCenter = new THREE.Vector3().addVectors(vA, vB).add(vC).divideScalar(3);
+
+          let closestLoc = null;
+          let minDist = Infinity;
+
+          Object.keys(locVectors).forEach(key => {
+              let dist = triCenter.distanceTo(locVectors[key]);
+              dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
+              if(dist < minDist) {
+                  minDist = dist;
+                  closestLoc = key;
+              }
+          });
+
+          faceRegions.push(closestLoc);
+
+          for(let v = 0; v < 3; v++) {
+              colors[(i+v)*3] = transparentBlack.r;
+              colors[(i+v)*3+1] = transparentBlack.g;
+              colors[(i+v)*3+2] = transparentBlack.b;
+          }
+      }
+
+      baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const plateMat = new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.45,
+          wireframe: false,
+          depthWrite: false
       });
+      tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
+      planetGroup.add(tectonicMesh);
 
-      const globalGrid = new THREE.LineSegments(wireframeGeo, gridMat);
-      platesGroup.add(globalGrid);
-
-      // Add Text Labels cleanly centered over each location
-      Object.keys(locVectors).forEach(locKey => {
+      // Add Text Labels inside their respective plates (Hidden until selected)
+      Object.keys(locVectors).forEach(name => {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#ccff00'; // Chartreuse text
         ctx.font = "Bold 36px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(locKey.toUpperCase(), 256, 64);
+        ctx.fillText(name.toUpperCase(), 256, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, 
-          color: 0xffffff, // Neutral white text
-          transparent: true, 
-          opacity: 0.5 
+          map: texture, color: 0xccff00, transparent: true, opacity: 0 // Hidden by default
         });
         
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
-        sprite.position.copy(locVectors[locKey]).setLength(planetRadius * 1.03); 
-        platesGroup.add(sprite);
-
-        tectonicPlates[locKey] = { sprite: sprite, vector: locVectors[locKey] };
+        sprite.position.copy(locVectors[name]).setLength(R * 1.04); 
+        
+        textSprites[name] = { sprite: sprite, texture: texture, ctx: ctx };
+        planetGroup.add(sprite);
       });
-
-      planetGroup.add(platesGroup);
 
     }, undefined, (error) => {
       console.warn("Europa.glb load error.");
@@ -154,29 +189,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Highlight active plate and text when admin command executes
+  // Highlight only the active plate with green/chartreuse
   window.updatePlanetMarker = (locationName) => {
-    if(!locationName) return;
+    if(!locationName || !tectonicMesh) return;
     const cleanName = locationName.toLowerCase();
+    const loc = europaLocations[cleanName];
     
-    // Reset all text to neutral white/dim
-    Object.keys(tectonicPlates).forEach(key => {
-      const p = tectonicPlates[key];
-      p.sprite.material.color.setHex(0xffffff);
-      p.sprite.material.opacity = 0.5;
+    // Hide all text sprites by default
+    Object.keys(textSprites).forEach(key => {
+      textSprites[key].sprite.material.opacity = 0;
     });
 
-    const loc = europaLocations[cleanName];
-    if(!loc) return;
-
-    // Highlight active text to striking chartreuse
-    const activePlate = tectonicPlates[cleanName];
-    if(activePlate) {
-      activePlate.sprite.material.color.setHex(0xccff00); 
-      activePlate.sprite.material.opacity = 1.0;
+    if(!loc) {
+      marker.visible = false;
+      return;
     }
 
-    // Move marker dot to exact coordinates
+    const activeColor = new THREE.Color(0xccff00); // Neon Chartreuse
+    const transparentBlack = new THREE.Color(0x000000); 
+    const colors = tectonicMesh.geometry.attributes.color.array;
+
+    for (let f = 0; f < faceRegions.length; f++) {
+        const isTarget = (faceRegions[f] === cleanName);
+        const c = isTarget ? activeColor : transparentBlack;
+
+        for(let v = 0; v < 3; v++) {
+            const idx = (f * 3 + v) * 3;
+            colors[idx] = c.r;
+            colors[idx+1] = c.g;
+            colors[idx+2] = c.b;
+        }
+    }
+    tectonicMesh.geometry.attributes.color.needsUpdate = true;
+
+    // Show text sprite for active region
+    if(textSprites[cleanName]) {
+       textSprites[cleanName].sprite.material.opacity = 1.0;
+    }
+
+    // Move marker dot
     marker.visible = true;
     const phi = (90 - loc.lat) * (Math.PI / 180);
     const theta = (loc.lon + 180) * (Math.PI / 180);
@@ -231,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0", 
+    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
     projectId: "europa-4b0d3" 
   };
   
@@ -292,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
     [ SYSTEM COMMANDS ]
     write [text]    → Save a new data log
     read            → Read all saved logs
-    rm [#]          → Delete a note by number
+    rm [#]          → Delete a log by number
     store [item]    → Add an item to cargo
     take [#]        → Remove an item from cargo
     inv             → Check cargo hold
@@ -312,10 +363,10 @@ document.addEventListener("DOMContentLoaded", () => {
     write: async (t) => { if (!t) return "Syntax: write [text]"; await db.collection("notes").add({ text: t, timestamp: Date.now() }); return "Log saved."; },
     read: async () => {
       const snap = await db.collection("notes").orderBy("timestamp").get(); cache.notes = snap.docs.map(doc => doc.id);
-      return snap.empty ? "[NULL] No notes exist." : snap.docs.map((doc, i) => `<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> LOG_0${i+1}: ${doc.data().text}`).join("\n");
+      return snap.empty ? "[NULL] No notes exist." : snap.docs.map((doc, i) => `<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> NOTE_0${i+1}: ${doc.data().text}`).join("\n");
     },
     rm: async (i) => {
-      const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.notes[idx]) return "Invalid note number.";
+      const idx = parseInt(i) - 1; if (isNaN(idx) || !cache.notes[idx]) return "[ERROR] Invalid note number.";
       await db.collection("notes").doc(cache.notes[idx]).delete(); return `[EXECUTED] Note_0${idx + 1} deleted.`;
     },
     store: async (item) => { if (!item) return "Syntax: store [item name]"; await db.collection("inventory").add({ text: item, timestamp: Date.now() }); return `[SUCCESS] '${item}' added to cargo.`; },
