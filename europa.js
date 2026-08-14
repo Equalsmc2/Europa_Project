@@ -15,7 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let planetGroup, marker, planetRadius = 1;
-  const tectonicPlates = {}; 
+  let tectonicMesh; 
+  let faceRegions = []; // Used to track which puzzle piece belongs to which location
+  const textSprites = {}; 
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -24,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 3.5; // Zoomed in to match the newly shrunk radius
+    camera.position.z = 4.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -34,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
-    controls.minDistance = 1.5;
+    controls.minDistance = 2;
     controls.maxDistance = 10;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.3;
@@ -49,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scene.add(planetGroup);
 
     // Location Marker (Red Dot)
-    const markerGeo = new THREE.SphereGeometry(0.025, 16, 16);
+    const markerGeo = new THREE.SphereGeometry(0.04, 16, 16);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
     marker = new THREE.Mesh(markerGeo, markerMat);
     marker.visible = false;
@@ -64,7 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
-      // FIX: Get the exact width of the planet and cut it in half for the true radius
       const size = new THREE.Vector3();
       box.getSize(size);
       planetRadius = size.x / 2;
@@ -72,86 +73,118 @@ document.addEventListener("DOMContentLoaded", () => {
       planetGroup.add(planetModel);
 
       // ==========================================
-      // GENERATE JAGGED PLATES LOCKED TO THE SPHERE
+      // STABLE INTERLOCKING ISOSPHERE (VORONOI)
       // ==========================================
-      const platesGroup = new THREE.Group();
+      const R = planetRadius * 1.01; // Wrap tightly around the globe
       
-      Object.keys(europaLocations).forEach((locKey) => {
-        const loc = europaLocations[locKey];
-        
-        // 1. Calculate the center of the tectonic plate on the 3D globe
+      // Calculate 3D center vectors for every location
+      const locVectors = {};
+      Object.keys(europaLocations).forEach(name => {
+        const loc = europaLocations[name];
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
         
-        // Wrap tightly around the globe (just 1.5% larger than the planet surface)
-        const R = planetRadius * 1.015; 
+        locVectors[name] = new THREE.Vector3(
+          -(R * Math.sin(phi) * Math.cos(theta)),
+          (R * Math.cos(phi)),
+          (R * Math.sin(phi) * Math.sin(theta))
+        );
+      });
 
-        const tx = -(R * Math.sin(phi) * Math.cos(theta));
-        const tz = (R * Math.sin(phi) * Math.sin(theta));
-        const ty = (R * Math.cos(phi));
-        const targetPos = new THREE.Vector3(tx, ty, tz);
+      // 1. Create a high-res, perfectly connected base sphere
+      let baseGeo = new THREE.IcosahedronGeometry(R, 8); // Higher resolution for jagged edges
+      
+      // 2. Distort the vertices with 3D math noise to create organic rock formations
+      const posBase = baseGeo.attributes.position;
+      for(let i = 0; i < posBase.count; i++) {
+          let v = new THREE.Vector3().fromBufferAttribute(posBase, i);
+          let noise = Math.sin(v.x * 15) * Math.cos(v.y * 15) * Math.sin(v.z * 15) * (R * 0.015);
+          v.setLength(R + noise);
+          posBase.setXYZ(i, v.x, v.y, v.z);
+      }
 
-        // 2. Procedurally generate a jagged line using pure Spherical Math
-        const points = [];
-        const numPoints = 60; // Resolution of the jagged edge
-        const baseSize = 0.18 + (Math.random() * 0.1); // Randomize region size slightly
+      // 3. Convert to non-indexed geometry so we can color individual tectonic plates sharply
+      baseGeo = baseGeo.toNonIndexed();
+      const pos = baseGeo.attributes.position;
+      const vertexCount = pos.count;
+      
+      const colors = new Float32Array(vertexCount * 3);
+      const dimCyan = new THREE.Color(0x00f0ff).multiplyScalar(0.06); // Dim transparent network
 
-        for(let i = 0; i <= numPoints; i++) {
-          const angle = (i / numPoints) * Math.PI * 2;
-          
-          let noise = Math.sin(angle * 5) * 0.03;
-          noise += Math.cos(angle * 8) * 0.02;
-          noise += (Math.random() - 0.5) * 0.025; 
-          
-          const polarAngle = baseSize + noise;
-          
-          const lx = R * Math.sin(polarAngle) * Math.cos(angle);
-          const ly = R * Math.sin(polarAngle) * Math.sin(angle);
-          const lz = R * Math.cos(polarAngle);
-          
-          points.push(new THREE.Vector3(lx, ly, lz));
-        }
-        
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-        const lineMat = new THREE.LineBasicMaterial({ 
-          color: 0x00f0ff, 
-          transparent: true, 
-          opacity: 0.5 
-        });
-        
-        const plateLine = new THREE.Line(lineGeo, lineMat);
-        
-        // Snap the perfectly curved spherical cap to face the correct Lat/Lon
-        plateLine.position.set(0, 0, 0);
-        plateLine.lookAt(targetPos); 
-        platesGroup.add(plateLine);
+      // 4. Shatter the sphere: Assign every triangle to the closest location point
+      for (let i = 0; i < vertexCount; i += 3) {
+          const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
+          const vB = new THREE.Vector3().fromBufferAttribute(pos, i+1);
+          const vC = new THREE.Vector3().fromBufferAttribute(pos, i+2);
+          const triCenter = new THREE.Vector3().addVectors(vA, vB).add(vC).divideScalar(3);
 
-        // 3. Canvas Text Sprite inside the Plate
+          let closestLoc = null;
+          let minDist = Infinity;
+
+          Object.keys(locVectors).forEach(key => {
+              let dist = triCenter.distanceTo(locVectors[key]);
+              // Add noise to the distance calculation to create organic, jagged borders
+              dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
+              
+              if(dist < minDist) {
+                  minDist = dist;
+                  closestLoc = key;
+              }
+          });
+
+          faceRegions.push(closestLoc);
+
+          // Apply default dim color to the vertices
+          for(let v = 0; v < 3; v++) {
+              colors[(i+v)*3] = dimCyan.r;
+              colors[(i+v)*3+1] = dimCyan.g;
+              colors[(i+v)*3+2] = dimCyan.b;
+          }
+      }
+
+      baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      // 5. Render the Solid Tectonic Plates
+      const plateMat = new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.8,
+          wireframe: false,
+          depthWrite: false
+      });
+      tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
+      planetGroup.add(tectonicMesh);
+
+      // 6. Draw the connected wireframe grid over the whole planet
+      const edges = new THREE.EdgesGeometry(baseGeo, 10);
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
+      const wireMesh = new THREE.LineSegments(edges, wireMat);
+      planetGroup.add(wireMesh);
+
+      // 7. Add Text Labels inside their respective plates
+      Object.keys(locVectors).forEach(name => {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
-        ctx.font = "Bold 44px 'JetBrains Mono', monospace";
+        ctx.font = "Bold 38px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(locKey.toUpperCase(), 256, 64);
+        ctx.fillText(name.toUpperCase(), 256, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.7 
+          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.45 
         });
         
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(0.6, 0.15, 1);
-        sprite.position.copy(targetPos).setLength(R * 1.05); // Hover text slightly higher
-        platesGroup.add(sprite);
-
-        // Store references for the admin command
-        tectonicPlates[locKey] = { line: plateLine, sprite: sprite };
+        sprite.scale.set(0.8, 0.2, 1);
+        sprite.position.copy(locVectors[name]).setLength(R * 1.05); // Hover text safely above the grid
+        
+        textSprites[name] = { sprite: sprite, texture: texture, ctx: ctx, text: name.toUpperCase() };
+        planetGroup.add(sprite);
       });
-
-      planetGroup.add(platesGroup);
 
     }, undefined, (error) => {
       console.warn("Europa.glb load error.");
@@ -174,37 +207,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Highlight active plate and text when admin command executes
+  // Highlight the specific interlocking puzzle piece
   window.updatePlanetMarker = (locationName) => {
-    if(!locationName) return;
+    if(!locationName || !tectonicMesh) return;
     const cleanName = locationName.toLowerCase();
+    const loc = europaLocations[cleanName];
     
-    // Dim all plates
-    Object.keys(tectonicPlates).forEach(key => {
-      const p = tectonicPlates[key];
-      p.line.material.color.setHex(0x00f0ff);
-      p.line.material.opacity = 0.5;
-      p.sprite.material.color.setHex(0x00f0ff);
-      p.sprite.material.opacity = 0.7;
+    // Dim all text back to cyan
+    Object.keys(textSprites).forEach(key => {
+      textSprites[key].sprite.material.color.setHex(0x00f0ff);
+      textSprites[key].sprite.material.opacity = 0.45;
     });
 
-    const loc = europaLocations[cleanName];
-    if(!loc) return;
+    if(!loc) {
+      marker.visible = false;
+      return;
+    }
 
-    // Light up the active plate
-    const activePlate = tectonicPlates[cleanName];
-    if(activePlate) {
-      activePlate.line.material.color.setHex(0xccff00); 
-      activePlate.line.material.opacity = 1.0;
-      activePlate.sprite.material.color.setHex(0xccff00);
-      activePlate.sprite.material.opacity = 1.0;
+    // Color definitions
+    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.7); // Chartreuse
+    const dimCyan = new THREE.Color(0x00f0ff).multiplyScalar(0.06); // Dim base
+    const colors = tectonicMesh.geometry.attributes.color.array;
+
+    // Loop through the mesh faces, if the face belongs to the target region, light it up
+    for (let f = 0; f < faceRegions.length; f++) {
+        const isTarget = (faceRegions[f] === cleanName);
+        const c = isTarget ? activeColor : dimCyan;
+
+        // Apply color to the 3 vertices of this face
+        for(let v = 0; v < 3; v++) {
+            const idx = (f * 3 + v) * 3;
+            colors[idx] = c.r;
+            colors[idx+1] = c.g;
+            colors[idx+2] = c.b;
+        }
+    }
+    tectonicMesh.geometry.attributes.color.needsUpdate = true;
+
+    // Highlight text sprite
+    if(textSprites[cleanName]) {
+       textSprites[cleanName].sprite.material.color.setHex(0xccff00);
+       textSprites[cleanName].sprite.material.opacity = 1.0;
     }
 
     // Move marker dot
     marker.visible = true;
     const phi = (90 - loc.lat) * (Math.PI / 180);
     const theta = (loc.lon + 180) * (Math.PI / 180);
-    const R = planetRadius * 1.02; // Put the dot right on the planet
+    const R = planetRadius * 1.02; 
 
     marker.position.x = -(R * Math.sin(phi) * Math.cos(theta));
     marker.position.z = (R * Math.sin(phi) * Math.sin(theta));
@@ -253,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
+    apiKey: "YOUR_API_KEY", 
     projectId: "europa-4b0d3" 
   };
   
