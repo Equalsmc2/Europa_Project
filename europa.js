@@ -1,13 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-
-  // ASCIIFY BACKGROUND GENERATOR
-  const asciiLayer = document.getElementById("ascii-layer");
-  if(asciiLayer) {
-      const chars = "01010101<>:-=+*#%X&/\\";
-      let str = "";
-      for(let i=0; i<8000; i++) str += chars[Math.floor(Math.random() * chars.length)];
-      asciiLayer.innerText = str;
-  }
   
   // 20 BASIC ENGLISH LOCATIONS
   const europaLocations = {
@@ -49,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 4.5;
+    camera.position.z = 3.5;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -62,34 +53,31 @@ document.addEventListener("DOMContentLoaded", () => {
     controls.minDistance = 1.5;
     controls.maxDistance = 10;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.2;
+    controls.autoRotateSpeed = 0.3;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xccffff, 1.2);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
     dirLight.position.set(5, 5, 5);
     scene.add(dirLight);
 
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // ==========================================
-    // PARTICLE OBJECT (CRYO DUST)
-    // ==========================================
-    const particleCount = 1200;
+    // Ambient Cryo Dust Particles
+    const particleCount = 1000;
     const particleGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
-        particlePos[i] = (Math.random() - 0.5) * 8; // Spread around the planet
+        particlePos[i] = (Math.random() - 0.5) * 6;
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
     const particleMat = new THREE.PointsMaterial({
-        color: 0x00f0ff, size: 0.015, transparent: true, opacity: 0.3
+        color: 0x00f0ff, size: 0.015, transparent: true, opacity: 0.25
     });
     const particles = new THREE.Points(particleGeo, particleMat);
     planetGroup.add(particles);
 
-    // Interaction Raycasting updates
     window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -99,19 +87,22 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
+      // Center model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
-      const modelWrapper = new THREE.Group();
-      modelWrapper.add(planetModel);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const planetRadius = size.x / 2;
       
-      const sphere = box.getBoundingSphere(new THREE.Sphere());
-      const R = 1.2; 
-      const scaleFactor = (R * 0.985) / sphere.radius; 
-      modelWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
-      planetGroup.add(modelWrapper);
+      planetGroup.add(planetModel);
 
+      // ==========================================
+      // DYNAMICALLY SIZED TECTONIC MESH (R = 1.02x)
+      // ==========================================
+      const R = planetRadius * 1.02; 
+      
       const platesGroup = new THREE.Group();
       const locNames = Object.keys(europaLocations);
       const locVectors = {};
@@ -138,6 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
+      
       const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
       const wireMesh = new THREE.LineSegments(new THREE.WireframeGeometry(baseGeo), wireMat);
       platesGroup.add(wireMesh);
@@ -179,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
       baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
       const plateMat = new THREE.MeshBasicMaterial({
-          vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false
+          vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false
       });
       tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
       platesGroup.add(tectonicMesh);
@@ -187,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
       locNames.forEach(name => {
         if (regionCounts[name] > 0) {
             regionCentroids[name].divideScalar(regionCounts[name]);
-            regionCentroids[name].setLength(R * 1.05); 
+            regionCentroids[name].setLength(R * 1.035); 
         }
 
         const regionGeo = new THREE.BufferGeometry().setFromPoints(regionTriangles[name]);
@@ -206,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
-        ctx.font = "Bold 36px 'JetBrains Mono', monospace";
+        ctx.font = "Bold 32px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(name.toUpperCase(), 256, 64);
@@ -216,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
           map: texture, color: 0x00f0ff, transparent: true, opacity: 0.6 
         });
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(0.6, 0.15, 1);
+        sprite.scale.set(0.45, 0.11, 1);
         sprite.position.copy(regionCentroids[name]); 
         platesGroup.add(sprite);
         tectonicPlates[name].sprite = sprite;
@@ -232,11 +224,8 @@ document.addEventListener("DOMContentLoaded", () => {
       requestAnimationFrame(animate);
       controls.update();
       
-      // Rotate cryo dust slowly
-      particles.rotation.y += 0.0005;
-      particles.rotation.x += 0.0002;
+      particles.rotation.y += 0.0004;
 
-      // Hover Logic
       if (tectonicMesh) {
           raycaster.setFromCamera(mouse, camera);
           const intersects = raycaster.intersectObject(tectonicMesh);
@@ -290,13 +279,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.5); 
+    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.6); 
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
     for (let f = 0; f < faceRegions.length; f++) {
         const isTarget = (faceRegions[f] === cleanName);
         const c = isTarget ? activeColor : transparentBlack;
+
         for(let v = 0; v < 3; v++) {
             const idx = (f * 3 + v) * 3;
             colors[idx] = c.r;
@@ -366,7 +356,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   setInterval(updateClock, 1000); updateClock();
 
-  // DECRYPT REVEAL FUNCTION
   const decryptChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>[]{}|';
   const log = (text, type = "normal") => {
     const div = document.createElement("div");
@@ -374,7 +363,6 @@ document.addEventListener("DOMContentLoaded", () => {
     terminal.appendChild(div);
     terminal.scrollTop = terminal.scrollHeight;
 
-    // Skip animation for HTML elements (like the yellow shop items)
     if(text.includes('<span')) {
         div.innerHTML = text.replace(/\n/g, "<br>");
         return;
