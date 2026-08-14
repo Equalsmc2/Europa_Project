@@ -3,81 +3,98 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>EUROPA PROJECT // LANCER OS</title>
+  <title>EUROPA PROJECT // CRYO ARCHIVE</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="europa.css?v=2"/>
+  <!-- BUMPED VERSION TO ?v=17 TO CLEAR CACHE -->
+  <link rel="stylesheet" href="europa.css?v=17"/>
 
-  <!-- Three.js and OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
   
-  <div id="main-interface">
-    <!-- Left Column: Terminal & Comms -->
-    <div id="left-stack">
-      <div id="terminal-wrapper">
-        <header>
-          <div class="brand">
-            <h2>EUROPA PROJECT</h2>
-            <small>NHP OMNINET LINK // LANCER SYSTEM</small>
-          </div>
-          <div id="system-clock">--:--:--</div>
-          <button id="tools-toggle">DEPLOY TOOLS</button>
-        </header>
+  <!-- IMMERSIVE FULL SCREEN BACKGROUND -->
+  <div id="europa-3d"></div>
+
+  <!-- FLOATING LIQUID GLASS UI -->
+  <div id="ui-overlay">
+    
+    <header id="global-header">
+      <div class="brand-block">
+        <h1>EUROPA PROJECT</h1>
+        <div class="subtitle">
+          <span class="dot"></span> SUB-ZERO ARCHIVE // TELEMETRY LINK
+        </div>
+      </div>
+      <div class="header-controls">
+        <span id="system-clock">--:--:--</span>
+        <button id="tools-toggle" class="glass-btn">SYS_TOOLS</button>
+      </div>
+    </header>
+
+    <div id="main-panels">
+      
+      <!-- LEFT STACK: TERMINAL -->
+      <aside class="glass-panel tall-panel" id="terminal-wrapper">
+        <div class="panel-header">
+          <h3>MAIN TERMINAL</h3>
+          <span class="status-indicator"></span>
+        </div>
         
         <div id="terminal-housing">
           <div id="terminal">
-            <div class="line system">Establishing secure Omninet connection...</div>
-            <div class="line system">Initializing terminal interface...</div>
+            <div class="line system">Establishing secure cryo-link...</div>
+            <div class="line system">Initializing sub-zero matrix...</div>
           </div>
         </div>
         
         <div class="input-line">
-          <span class="prompt">NHP></span>
-          <input id="cli" type="text" autocomplete="off" placeholder="INPUT COMMAND..." autofocus />
+          <span class="prompt">CMD></span>
+          <input id="cli" type="text" autocomplete="off" placeholder="AWAITING INPUT..." autofocus />
         </div>
-      </div>
+      </aside>
 
-      <div id="chat-wrapper">
-        <header>
-          <h3>PILOT COMMS</h3>
-          <span class="status-pulse"></span>
-        </header>
-        <div id="chat-messages"></div>
-        <div class="chat-input-area">
-          <span class="prompt">TX></span>
-          <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
+      <!-- RIGHT STACK: COMMS & TELEMETRY -->
+      <aside class="right-stack">
+        <div class="glass-panel" id="telemetry-panel">
+          <div class="panel-header">
+            <h3>SECTOR TELEMETRY</h3>
+            <span class="status-indicator active-pulse"></span>
+          </div>
+          <div class="telemetry-readout">
+            <span id="europa-location-text">LOC_TRACK: OFFLINE</span>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Right Column: Dedicated 3D Europa Viewport -->
-    <div id="europa-viewport-wrapper">
-      <header>
-        <h3>EUROPA TOPOLOGY</h3>
-        <small>TECTONIC SECTORS ACTIVE</small>
-      </header>
-      <div id="europa-3d"></div>
-      <div class="viewport-footer">
-        <span id="europa-location-text">AWAITING LOCATION DATA...</span>
-      </div>
-    </div>
+        <div class="glass-panel tall-panel" id="chat-wrapper">
+          <div class="panel-header">
+            <h3>FIRETEAM COMMS</h3>
+          </div>
+          <div id="chat-messages"></div>
+          <div class="input-line">
+            <span class="prompt">TX></span>
+            <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
+          </div>
+        </div>
+      </aside>
 
-  <!-- Sliding Side Tray (Dice & Calc) -->
-  <aside id="side-tray">
+    </div>
+  </div>
+
+  <!-- SLIDING SIDE TRAY (TOOLS) -->
+  <aside id="side-tray" class="glass-panel">
     <div class="tray-header">
-      <h3>SYSTEM TOOLS</h3>
-      <button id="tray-close">✖</button>
+      <h3>DIAGNOSTICS</h3>
+      <button id="tray-close" class="glass-btn icon-btn">✖</button>
     </div>
 
     <div class="tool-section">
-      <h4>MECHANICAL RESOLUTION</h4>
+      <h4>RESOLUTION MATRIX</h4>
       <div id="dice-display">STANDBY</div>
       <div class="dice-grid">
         <button onclick="roll(4)">d4</button>
@@ -123,6 +140,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   
-  <script src="europa.js?v=20"></script>
+  <script src="europa.js?v=17"></script>
 </body>
 </html>
