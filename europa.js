@@ -94,7 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       
-      // THE FIX: Strict 1.02 multiplier based directly on the loaded model's size
+      // Strict 1.02 multiplier based directly on the loaded model's size
       const planetRadius = sphere.radius;
       const R = planetRadius * 1.02; 
       
@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tectonicPlates[n] = {};
       });
 
-      // Flawless smooth geometric grid (removed the noise distortion)
+      // Flawless smooth geometric grid
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
       
       const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const regionGeo = new THREE.BufferGeometry().setFromPoints(regionTriangles[name]);
         const regionEdges = new THREE.EdgesGeometry(regionGeo, 5);
         const dashMat = new THREE.LineDashedMaterial({ 
-            color: 0xccff00, dashSize: 0.03, gapSize: 0.03, transparent: true, opacity: 0.9 
+            color: 0xff5e8e, dashSize: 0.03, gapSize: 0.03, transparent: true, opacity: 0.9 
         });
         const hoverOutline = new THREE.LineSegments(regionEdges, dashMat);
         hoverOutline.computeLineDistances(); 
@@ -246,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
               }
               if(newHover && tectonicPlates[newHover]) {
                   tectonicPlates[newHover].hoverOutline.visible = true;
-                  tectonicPlates[newHover].sprite.material.color.setHex(0xccff00);
+                  tectonicPlates[newHover].sprite.material.color.setHex(0xff5e8e);
                   tectonicPlates[newHover].sprite.material.opacity = 1.0;
               }
               currentHover = newHover;
@@ -279,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.5); 
+    const activeColor = new THREE.Color(0xff5e8e).multiplyScalar(0.5); 
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
@@ -297,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tectonicMesh.geometry.attributes.color.needsUpdate = true;
 
     if(tectonicPlates[cleanName]) {
-       tectonicPlates[cleanName].sprite.material.color.setHex(0xccff00);
+       tectonicPlates[cleanName].sprite.material.color.setHex(0xff5e8e);
        tectonicPlates[cleanName].sprite.material.opacity = 1.0;
     }
   };
@@ -448,7 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     shop: async () => {
       const snap = await db.collection("shop").orderBy("price").get(); if (snap.empty) return "[NULL] Requisition list is empty.";
-      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#ccff00">${doc.data().price} Credits</span>`).join("\n");
+      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#ff5e8e">${doc.data().price} Credits</span>`).join("\n");
     },
     buy: async (itemName) => {
       if (!itemName) return "Syntax: buy [item name]";
