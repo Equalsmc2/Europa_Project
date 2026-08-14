@@ -39,11 +39,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const scene = new THREE.Scene();
     
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    // Updated for Full Screen
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 4.0;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -64,14 +65,9 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    container.addEventListener('mousemove', (e) => {
+    window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    });
-    
-    container.addEventListener('mouseleave', () => {
-        mouse.x = -1;
-        mouse.y = -1;
     });
 
     const loader = new THREE.GLTFLoader();
@@ -95,10 +91,8 @@ document.addEventListener("DOMContentLoaded", () => {
       modelWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
       planetGroup.add(modelWrapper);
 
-      // ==========================================
-      // CRYO SEAMLESS TECTONIC PLATES
-      // ==========================================
       const platesGroup = new THREE.Group();
+      
       const locNames = Object.keys(europaLocations);
       const locVectors = {};
       
@@ -125,14 +119,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
       
-      const wireMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 });
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.1 });
       const wireMesh = new THREE.LineSegments(new THREE.WireframeGeometry(baseGeo), wireMat);
       platesGroup.add(wireMesh);
 
       baseGeo = baseGeo.toNonIndexed();
       const pos = baseGeo.attributes.position;
       const colors = new Float32Array(pos.count * 3);
-      const transparentBlack = new THREE.Color(0x000000);
+      const transparentBlack = new THREE.Color(0x000000); 
 
       for (let i = 0; i < pos.count; i += 3) {
           const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
@@ -166,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
       baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
       const plateMat = new THREE.MeshBasicMaterial({
-          vertexColors: true, transparent: true, opacity: 0.4, depthWrite: false
+          vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false
       });
       tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
       platesGroup.add(tectonicMesh);
@@ -180,11 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const regionGeo = new THREE.BufferGeometry().setFromPoints(regionTriangles[name]);
         const regionEdges = new THREE.EdgesGeometry(regionGeo, 5);
         const dashMat = new THREE.LineDashedMaterial({ 
-            color: 0x00e5ff, // Cryo Cyan Hover
-            dashSize: 0.03, 
-            gapSize: 0.03, 
-            transparent: true, 
-            opacity: 0.9 
+            color: 0xccff00, dashSize: 0.03, gapSize: 0.03, transparent: true, opacity: 0.9 
         });
         const hoverOutline = new THREE.LineSegments(regionEdges, dashMat);
         hoverOutline.computeLineDistances(); 
@@ -204,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0xffffff, transparent: true, opacity: 0.4 // Frosty text
+          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.5 
         });
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
@@ -223,7 +213,6 @@ document.addEventListener("DOMContentLoaded", () => {
       requestAnimationFrame(animate);
       controls.update();
       
-      // Hover Logic
       if (tectonicMesh) {
           raycaster.setFromCamera(mouse, camera);
           const intersects = raycaster.intersectObject(tectonicMesh);
@@ -238,13 +227,13 @@ document.addEventListener("DOMContentLoaded", () => {
               if(currentHover && tectonicPlates[currentHover]) {
                   tectonicPlates[currentHover].hoverOutline.visible = false;
                   if(currentHover !== activeRegion) {
-                      tectonicPlates[currentHover].sprite.material.color.setHex(0xffffff);
-                      tectonicPlates[currentHover].sprite.material.opacity = 0.4;
+                      tectonicPlates[currentHover].sprite.material.color.setHex(0x00f0ff);
+                      tectonicPlates[currentHover].sprite.material.opacity = 0.5;
                   }
               }
               if(newHover && tectonicPlates[newHover]) {
                   tectonicPlates[newHover].hoverOutline.visible = true;
-                  tectonicPlates[newHover].sprite.material.color.setHex(0x00e5ff); // Cyan on hover
+                  tectonicPlates[newHover].sprite.material.color.setHex(0xccff00);
                   tectonicPlates[newHover].sprite.material.opacity = 1.0;
               }
               currentHover = newHover;
@@ -265,7 +254,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Admin Highlight
   window.updatePlanetMarker = (locationName) => {
     if(!locationName || !tectonicMesh) return;
     const cleanName = locationName.toLowerCase();
@@ -273,12 +261,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     Object.keys(tectonicPlates).forEach(key => {
       if(key !== currentHover) {
-          tectonicPlates[key].sprite.material.color.setHex(0xffffff);
-          tectonicPlates[key].sprite.material.opacity = 0.4;
+          tectonicPlates[key].sprite.material.color.setHex(0x00f0ff);
+          tectonicPlates[key].sprite.material.opacity = 0.5;
       }
     });
 
-    const activeColor = new THREE.Color(0x00e5ff).multiplyScalar(0.7); // Cryo Cyan Fill
+    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.5); 
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
@@ -296,24 +284,19 @@ document.addEventListener("DOMContentLoaded", () => {
     tectonicMesh.geometry.attributes.color.needsUpdate = true;
 
     if(tectonicPlates[cleanName]) {
-       tectonicPlates[cleanName].sprite.material.color.setHex(0x00e5ff);
+       tectonicPlates[cleanName].sprite.material.color.setHex(0xccff00);
        tectonicPlates[cleanName].sprite.material.opacity = 1.0;
     }
   };
 
-  // UI & TOOLS
-  const tray = document.getElementById("side-tray");
-  const toggleBtn = document.getElementById("tools-toggle");
-  const closeBtn = document.getElementById("tray-close");
-
-  if (toggleBtn) toggleBtn.addEventListener("click", () => tray.classList.add("open"));
-  if (closeBtn) closeBtn.addEventListener("click", () => tray.classList.remove("open"));
-
+  // ==========================================
+  // TOOLS
+  // ==========================================
   window.roll = (sides) => {
     const display = document.getElementById("dice-display");
     const result = Math.floor(Math.random() * sides) + 1;
     display.textContent = "CALCULATING...";
-    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #00e5ff">${result}</span>`; }, 150);
+    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #00f0ff">${result}</span>`; }, 150);
   };
 
   let calcExp = "";
@@ -337,9 +320,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // ==========================================
   // FIREBASE & TERMINAL LOGIC
+  // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
+    apiKey: "YOUR_API_KEY", 
     projectId: "europa-4b0d3" 
   };
   
@@ -354,7 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const updateClock = () => {
     const now = new Date();
-    document.getElementById("system-clock").innerText = now.toLocaleTimeString('en-US', { hour12: false }) + " SYSTEM";
+    document.getElementById("system-clock").innerText = now.toLocaleTimeString('en-US', { hour12: false }) + " OMNINET";
   };
   setInterval(updateClock, 1000); updateClock();
 
@@ -372,7 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const notesSnap = await db.collection("notes").orderBy("timestamp").get();
       cache.notes = notesSnap.docs.map(doc => doc.id);
-      log("\nARCHIVE LOGS:", "gold");
+      log("\nDATA LOGS:", "gold");
       if (notesSnap.empty) log(" [NULL] No logs found.", "system");
       else notesSnap.docs.forEach((doc, i) => { log(`<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> LOG_0${i + 1}: ${doc.data().text}`); });
 
@@ -405,9 +390,9 @@ document.addEventListener("DOMContentLoaded", () => {
     take [#]        → Remove an item from cargo
     inv             → Check cargo hold
     weather         → Check atmospheric conditions
-    radio           → Intercept signals
+    radio           → Intercept omninet signals
     location        → Check current topological sector
-    bank [+/- amt]  → Manage credits
+    bank [+/- amt]  → Manage manna/credits
     shop            → View requisition list
     buy [item]      → Requisition an item
     clear           → Clear display
@@ -455,7 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     shop: async () => {
       const snap = await db.collection("shop").orderBy("price").get(); if (snap.empty) return "[NULL] Requisition list is empty.";
-      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#00e5ff">${doc.data().price} Credits</span>`).join("\n");
+      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#ccff00">${doc.data().price} Credits</span>`).join("\n");
     },
     buy: async (itemName) => {
       if (!itemName) return "Syntax: buy [item name]";
