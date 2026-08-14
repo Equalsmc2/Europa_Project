@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let tectonicMesh, faceRegions = []; 
   const tectonicPlates = {}; 
   
-  // Raycaster for Hover effect
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2(-1, -1);
   let currentHover = null;
@@ -41,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 3.5;
+    camera.position.z = 4.0;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -65,14 +64,11 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // Update mouse position for hovering
     container.addEventListener('mousemove', (e) => {
-        const rect = container.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     });
     
-    // Clear hover when mouse leaves
     container.addEventListener('mouseleave', () => {
         mouse.x = -1;
         mouse.y = -1;
@@ -82,25 +78,27 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Perfectly center the 3D model geometry based on its own boundaries
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
-      planetModel.position.sub(center);
       
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      let planetRadius = size.x / 2;
+      planetModel.position.x = -center.x;
+      planetModel.position.y = -center.y;
+      planetModel.position.z = -center.z;
       
-      planetGroup.add(planetModel);
+      const modelWrapper = new THREE.Group();
+      modelWrapper.add(planetModel);
+      
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      const R = 1.2; 
+      
+      const scaleFactor = (R * 0.985) / sphere.radius; 
+      modelWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      planetGroup.add(modelWrapper);
 
       // ==========================================
-      // SEAMLESS VORONOI TECTONIC PLATES
+      // CRYO SEAMLESS TECTONIC PLATES
       // ==========================================
       const platesGroup = new THREE.Group();
-      
-      // FIXED RADIUS: Exactly 1.02 times the planet's native radius
-      const R = planetRadius * 1.02; 
-      
       const locNames = Object.keys(europaLocations);
       const locVectors = {};
       
@@ -125,21 +123,17 @@ document.addEventListener("DOMContentLoaded", () => {
         tectonicPlates[n] = {};
       });
 
-      // 1. Create a clean geometric sphere
       let baseGeo = new THREE.IcosahedronGeometry(R, 5);
       
-      // 2. Add faint Hex/Geodesic wireframe overlay
-      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
+      const wireMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 });
       const wireMesh = new THREE.LineSegments(new THREE.WireframeGeometry(baseGeo), wireMat);
       platesGroup.add(wireMesh);
 
-      // 3. Convert to non-indexed geometry to color and shatter plates
       baseGeo = baseGeo.toNonIndexed();
       const pos = baseGeo.attributes.position;
       const colors = new Float32Array(pos.count * 3);
-      const transparentBlack = new THREE.Color(0x000000); // Invisible by default (No blue tint)
+      const transparentBlack = new THREE.Color(0x000000);
 
-      // 4. Shatter the sphere: Assign every triangle to the closest location point
       for (let i = 0; i < pos.count; i += 3) {
           const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
           const vB = new THREE.Vector3().fromBufferAttribute(pos, i+1);
@@ -151,7 +145,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
           locNames.forEach(key => {
               let dist = triCenter.distanceTo(locVectors[key]);
-              // Math noise creates the jagged, tectonic plate look
               dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
               if(dist < minDist) {
                   minDist = dist;
@@ -172,38 +165,33 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-      // 5. Draw the solid plates
       const plateMat = new THREE.MeshBasicMaterial({
-          vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false
+          vertexColors: true, transparent: true, opacity: 0.4, depthWrite: false
       });
       tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
       platesGroup.add(tectonicMesh);
 
-      // 6. Generate the Hover Borders and Text Labels
       locNames.forEach(name => {
-        // Average the face centers to find the TRUE center of the jagged plate
         if (regionCounts[name] > 0) {
             regionCentroids[name].divideScalar(regionCounts[name]);
-            regionCentroids[name].setLength(R * 1.05); // Push text up so it hovers slightly
+            regionCentroids[name].setLength(R * 1.05); 
         }
 
-        // --- THE DOTTED/DASHED HOVER BORDER ---
         const regionGeo = new THREE.BufferGeometry().setFromPoints(regionTriangles[name]);
         const regionEdges = new THREE.EdgesGeometry(regionGeo, 5);
         const dashMat = new THREE.LineDashedMaterial({ 
-            color: 0xccff00, 
+            color: 0x00e5ff, // Cryo Cyan Hover
             dashSize: 0.03, 
             gapSize: 0.03, 
             transparent: true, 
             opacity: 0.9 
         });
         const hoverOutline = new THREE.LineSegments(regionEdges, dashMat);
-        hoverOutline.computeLineDistances(); // Crucial to make dashed lines work
-        hoverOutline.visible = false; // Hidden until hovered
+        hoverOutline.computeLineDistances(); 
+        hoverOutline.visible = false; 
         platesGroup.add(hoverOutline);
         tectonicPlates[name].hoverOutline = hoverOutline;
 
-        // --- THE TEXT SPRITE ---
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
@@ -216,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.6 // Dim cyan by default
+          map: texture, color: 0xffffff, transparent: true, opacity: 0.4 // Frosty text
         });
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
@@ -235,9 +223,7 @@ document.addEventListener("DOMContentLoaded", () => {
       requestAnimationFrame(animate);
       controls.update();
       
-      // ==========================================
-      // HOVER LOGIC (RAYCASTER)
-      // ==========================================
+      // Hover Logic
       if (tectonicMesh) {
           raycaster.setFromCamera(mouse, camera);
           const intersects = raycaster.intersectObject(tectonicMesh);
@@ -249,19 +235,16 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           if(newHover !== currentHover) {
-              // Deactivate old hover
               if(currentHover && tectonicPlates[currentHover]) {
                   tectonicPlates[currentHover].hoverOutline.visible = false;
-                  // Only dim text if it's not the currently active admin region
                   if(currentHover !== activeRegion) {
-                      tectonicPlates[currentHover].sprite.material.color.setHex(0x00f0ff);
-                      tectonicPlates[currentHover].sprite.material.opacity = 0.6;
+                      tectonicPlates[currentHover].sprite.material.color.setHex(0xffffff);
+                      tectonicPlates[currentHover].sprite.material.opacity = 0.4;
                   }
               }
-              // Activate new hover
               if(newHover && tectonicPlates[newHover]) {
                   tectonicPlates[newHover].hoverOutline.visible = true;
-                  tectonicPlates[newHover].sprite.material.color.setHex(0xccff00);
+                  tectonicPlates[newHover].sprite.material.color.setHex(0x00e5ff); // Cyan on hover
                   tectonicPlates[newHover].sprite.material.opacity = 1.0;
               }
               currentHover = newHover;
@@ -274,29 +257,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener('resize', () => {
       if (!container) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(window.innerWidth, window.innerHeight);
     });
   };
 
   initEuropa3D();
 
-  // Highlight active plate (Solid Green) when admin command executes
+  // Admin Highlight
   window.updatePlanetMarker = (locationName) => {
     if(!locationName || !tectonicMesh) return;
     const cleanName = locationName.toLowerCase();
-    activeRegion = cleanName; // Save globally so hover logic respects it
+    activeRegion = cleanName; 
     
-    // Reset all text to dim Cyan
     Object.keys(tectonicPlates).forEach(key => {
       if(key !== currentHover) {
-          tectonicPlates[key].sprite.material.color.setHex(0x00f0ff);
-          tectonicPlates[key].sprite.material.opacity = 0.6;
+          tectonicPlates[key].sprite.material.color.setHex(0xffffff);
+          tectonicPlates[key].sprite.material.opacity = 0.4;
       }
     });
 
-    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.7); 
+    const activeColor = new THREE.Color(0x00e5ff).multiplyScalar(0.7); // Cryo Cyan Fill
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
@@ -314,14 +296,12 @@ document.addEventListener("DOMContentLoaded", () => {
     tectonicMesh.geometry.attributes.color.needsUpdate = true;
 
     if(tectonicPlates[cleanName]) {
-       tectonicPlates[cleanName].sprite.material.color.setHex(0xccff00);
+       tectonicPlates[cleanName].sprite.material.color.setHex(0x00e5ff);
        tectonicPlates[cleanName].sprite.material.opacity = 1.0;
     }
   };
 
-  // ==========================================
   // UI & TOOLS
-  // ==========================================
   const tray = document.getElementById("side-tray");
   const toggleBtn = document.getElementById("tools-toggle");
   const closeBtn = document.getElementById("tray-close");
@@ -333,7 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const display = document.getElementById("dice-display");
     const result = Math.floor(Math.random() * sides) + 1;
     display.textContent = "CALCULATING...";
-    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #00f0ff">${result}</span>`; }, 150);
+    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #00e5ff">${result}</span>`; }, 150);
   };
 
   let calcExp = "";
@@ -349,21 +329,17 @@ document.addEventListener("DOMContentLoaded", () => {
         screen.textContent = finalResult;
         calcExp = finalResult.toString();
       } catch (e) {
-        screen.textContent = "ERR";
-        calcExp = "";
+        screen.textContent = "ERR"; calcExp = "";
       }
     } else {
       if (calcExp === "" && ["*", "/", "+"].includes(val)) return;
-      calcExp += val;
-      screen.textContent = calcExp;
+      calcExp += val; screen.textContent = calcExp;
     }
   };
 
-  // ==========================================
   // FIREBASE & TERMINAL LOGIC
-  // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
+    apiKey: "YOUR_API_KEY", 
     projectId: "europa-4b0d3" 
   };
   
@@ -378,7 +354,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const updateClock = () => {
     const now = new Date();
-    document.getElementById("system-clock").innerText = now.toLocaleTimeString('en-US', { hour12: false }) + " OMNINET";
+    document.getElementById("system-clock").innerText = now.toLocaleTimeString('en-US', { hour12: false }) + " SYSTEM";
   };
   setInterval(updateClock, 1000); updateClock();
 
@@ -396,7 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const notesSnap = await db.collection("notes").orderBy("timestamp").get();
       cache.notes = notesSnap.docs.map(doc => doc.id);
-      log("\nDATA LOGS:", "gold");
+      log("\nARCHIVE LOGS:", "gold");
       if (notesSnap.empty) log(" [NULL] No logs found.", "system");
       else notesSnap.docs.forEach((doc, i) => { log(`<span class="timestamp">[${formatTime(doc.data().timestamp)}]</span> LOG_0${i + 1}: ${doc.data().text}`); });
 
@@ -429,9 +405,9 @@ document.addEventListener("DOMContentLoaded", () => {
     take [#]        → Remove an item from cargo
     inv             → Check cargo hold
     weather         → Check atmospheric conditions
-    radio           → Intercept omninet signals
+    radio           → Intercept signals
     location        → Check current topological sector
-    bank [+/- amt]  → Manage manna/credits
+    bank [+/- amt]  → Manage credits
     shop            → View requisition list
     buy [item]      → Requisition an item
     clear           → Clear display
@@ -479,7 +455,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     shop: async () => {
       const snap = await db.collection("shop").orderBy("price").get(); if (snap.empty) return "[NULL] Requisition list is empty.";
-      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#ccff00">${doc.data().price} Credits</span>`).join("\n");
+      return snap.docs.map((doc, i) => `ITEM_0${i+1}: ${doc.data().name} — <span style="color:#00e5ff">${doc.data().price} Credits</span>`).join("\n");
     },
     buy: async (itemName) => {
       if (!itemName) return "Syntax: buy [item name]";
