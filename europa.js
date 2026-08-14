@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let planetGroup, marker, planetRadius = 1;
-  const tectonicPlates = {}; // Stores individual plate meshes for targeted admin control
+  const tectonicPlates = {}; // Stores lines and sprites for admin control
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // Location Marker
+    // Core Location Marker
     const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
     marker = new THREE.Mesh(markerGeo, markerMat);
@@ -68,44 +68,71 @@ document.addEventListener("DOMContentLoaded", () => {
       
       planetGroup.add(planetModel);
 
-      // GENERATE SEPARATED TECTONIC PLATES OVER THE PLANET
+      // GENERATE JAGGED TECTONIC BOUNDARIES & TEXT LABELS
       const platesGroup = new THREE.Group();
       
       Object.keys(europaLocations).forEach((locKey) => {
         const loc = europaLocations[locKey];
         
-        // Create an individual curved plate segment (BoxGeometry bent/positioned around sphere)
-        const plateWidth = 0.4;
-        const plateHeight = 0.4;
-        const plateGeo = new THREE.BoxGeometry(plateWidth, plateHeight, 0.02);
-        
-        const plateMat = new THREE.MeshStandardMaterial({
-          color: 0x00f0ff, // Cyber cyan base plate color
-          roughness: 0.3,
-          metalness: 0.8,
-          wireframe: false,
-          transparent: true,
-          opacity: 0.65
-        });
-
-        const plateMesh = new THREE.Mesh(plateGeo, plateMat);
-
-        // Position plate accurately based on Lat/Lon coordinates
+        // 1. Calculate Target Position on Sphere
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
-        const R = planetRadius * 1.02;
+        const R = planetRadius;
 
-        plateMesh.position.x = -(R * Math.sin(phi) * Math.cos(theta));
-        plateMesh.position.z = (R * Math.sin(phi) * Math.sin(theta));
-        plateMesh.position.y = (R * Math.cos(phi));
+        const tx = -(R * Math.sin(phi) * Math.cos(theta));
+        const tz = (R * Math.sin(phi) * Math.sin(theta));
+        const ty = (R * Math.cos(phi));
+        const targetPos = new THREE.Vector3(tx, ty, tz);
 
-        // Orient plate to face directly outwards from core center
-        plateMesh.lookAt(0, 0, 0);
-        plateMesh.rotateY(Math.PI); // Flip orientation so face points outward
+        // 2. Procedurally Generate a Jagged Line Boundary
+        const points = [];
+        const numPoints = 40; // Detail of the jagged edge
+        const basePlateRadius = R * (0.25 + Math.random() * 0.15); // Random plate size
 
-        // Store reference for admin activation
-        tectonicPlates[locKey] = plateMesh;
-        platesGroup.add(plateMesh);
+        for(let i = 0; i <= numPoints; i++) {
+          const angle = (i / numPoints) * Math.PI * 2;
+          // Add heavy randomization for that natural jagged tectonic look
+          const jaggedRadius = basePlateRadius * (1 + (Math.random() * 0.5 - 0.25)); 
+          
+          const x = Math.cos(angle) * jaggedRadius;
+          const y = Math.sin(angle) * jaggedRadius;
+          // Project flat circle onto spherical cap
+          const z = Math.sqrt(Math.max(0, R*R - x*x - y*y)); 
+          
+          points.push(new THREE.Vector3(x, y, z).setLength(R * 1.01)); // Hover slightly above surface
+        }
+        
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.35 });
+        const lineMesh = new THREE.Line(lineGeo, lineMat);
+
+        // Snap the flat generated boundary to the correct Lat/Lon on the planet
+        lineMesh.position.set(0, 0, 0);
+        lineMesh.lookAt(targetPos);
+        platesGroup.add(lineMesh);
+
+        // 3. Generate the Text Label (Sprite)
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#00f0ff'; // Cyan default
+        ctx.font = "Bold 40px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(locKey.toUpperCase(), 256, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.6 });
+        const sprite = new THREE.Sprite(spriteMat);
+        
+        // Scale and position the text slightly higher than the boundary so it pops
+        sprite.scale.set(1.2, 0.3, 1);
+        sprite.position.copy(targetPos).setLength(R * 1.06); 
+        platesGroup.add(sprite);
+
+        // Store references to update colors dynamically during admin commands
+        tectonicPlates[locKey] = { line: lineMesh, sprite: sprite, ctx: ctx, texture: texture };
       });
 
       planetGroup.add(platesGroup);
@@ -137,12 +164,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const cleanName = locationName.toLowerCase();
     const loc = europaLocations[cleanName];
     
-    // Reset all plates to default appearance
+    // Reset all plates and text to default Cyan
     Object.keys(tectonicPlates).forEach(key => {
       const p = tectonicPlates[key];
-      p.material.color.setHex(0x00f0ff);
-      p.material.opacity = 0.65;
-      p.scale.set(1, 1, 1);
+      p.line.material.color.setHex(0x00f0ff);
+      p.line.material.opacity = 0.35;
+      
+      p.ctx.clearRect(0, 0, 512, 128);
+      p.ctx.fillStyle = '#00f0ff';
+      p.ctx.fillText(key.toUpperCase(), 256, 64);
+      p.texture.needsUpdate = true;
+      p.sprite.material.opacity = 0.6;
     });
 
     if(!loc || !marker) { 
@@ -150,12 +182,17 @@ document.addEventListener("DOMContentLoaded", () => {
       return; 
     }
 
-    // Highlight the active tectonic plate
+    // Highlight the active tectonic plate and text to Chartreuse
     const activePlate = tectonicPlates[cleanName];
     if(activePlate) {
-      activePlate.material.color.setHex(0xccff00); // Shift active plate to striking chartreuse
-      activePlate.material.opacity = 0.95;
-      activePlate.scale.set(1.2, 1.2, 1.5); // Pop the section out slightly
+      activePlate.line.material.color.setHex(0xccff00); 
+      activePlate.line.material.opacity = 1.0;
+      
+      activePlate.ctx.clearRect(0, 0, 512, 128);
+      activePlate.ctx.fillStyle = '#ccff00';
+      activePlate.ctx.fillText(cleanName.toUpperCase(), 256, 64);
+      activePlate.texture.needsUpdate = true;
+      activePlate.sprite.material.opacity = 1.0;
     }
 
     marker.visible = true;
