@@ -1,17 +1,27 @@
 document.addEventListener("DOMContentLoaded", () => {
   
-  // TECTONIC SECTORS & THEIR LAT/LON CENTERS
+  // 20 BASIC ENGLISH LOCATIONS
   const europaLocations = {
-    "conamara chaos": { lat: 9.7, lon: 272.7 },
-    "pwyll crater": { lat: -25.2, lon: 271.4 },
-    "thera macula": { lat: -46.7, lon: 181.2 },
-    "thrace macula": { lat: -45.9, lon: 172.1 },
-    "cilix crater": { lat: 2.6, lon: 181.9 },
-    "minos linea": { lat: 45.0, lon: 200.0 }, 
-    "rhadamanthys linea": { lat: 30.0, lon: 150.0 }, 
-    "castalia macula": { lat: -1.6, lon: 225.7 },
-    "outpost zero": { lat: 0, lon: 0 }, 
-    "abyssal gate": { lat: -80, lon: 45 } 
+    "alpha base": { lat: 80, lon: 0 },
+    "beta point": { lat: -80, lon: 0 },
+    "delta hub": { lat: 45, lon: 45 },
+    "echo site": { lat: 45, lon: 135 },
+    "nova camp": { lat: 45, lon: 225 },
+    "snow ridge": { lat: 45, lon: 315 },
+    "ice valley": { lat: 0, lon: 0 },
+    "deep trench": { lat: 0, lon: 72 },
+    "frost peak": { lat: 0, lon: 144 },
+    "iron bank": { lat: 0, lon: 216 },
+    "zero point": { lat: 0, lon: 288 },
+    "far zone": { lat: -45, lon: 45 },
+    "high pass": { lat: -45, lon: 135 },
+    "low camp": { lat: -45, lon: 225 },
+    "main base": { lat: -45, lon: 315 },
+    "red sector": { lat: 20, lon: 100 },
+    "blue sector": { lat: -20, lon: 200 },
+    "ghost town": { lat: 60, lon: 180 },
+    "quiet zone": { lat: -60, lon: 270 },
+    "last stop": { lat: -10, lon: 340 }
   };
 
   let planetGroup;
@@ -72,20 +82,28 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Perfectly center the 3D model geometry
+      // FIX: Perfectly center the 3D model geometry using a wrapper
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
-      planetModel.position.sub(center);
+      
+      // Shift the model's actual geometry so it sits perfectly at 0,0,0
+      planetModel.position.x = -center.x;
+      planetModel.position.y = -center.y;
+      planetModel.position.z = -center.z;
+      
+      // Place it in a wrapper so we can scale it cleanly from the true center
+      const modelWrapper = new THREE.Group();
+      modelWrapper.add(planetModel);
       
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       
       // USER REQUESTED RADIUS: 1.2
       const R = 1.2; 
       
-      // Scale the planet so it fits perfectly inside the 1.2 radius grid
+      // Scale the wrapper so it fits perfectly inside the 1.2 radius grid
       const scaleFactor = (R * 0.985) / sphere.radius; 
-      planetModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
-      planetGroup.add(planetModel);
+      modelWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      planetGroup.add(modelWrapper);
 
       // ==========================================
       // SEAMLESS VORONOI TECTONIC PLATES
@@ -129,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
       baseGeo = baseGeo.toNonIndexed();
       const pos = baseGeo.attributes.position;
       const colors = new Float32Array(pos.count * 3);
-      const transparentBlack = new THREE.Color(0x000000); // Invisible by default (No blue tint!)
+      const transparentBlack = new THREE.Color(0x000000); // Invisible by default (No blue tint)
 
       // 4. Shatter the sphere: Assign every triangle to the closest location point
       for (let i = 0; i < pos.count; i += 3) {
@@ -429,9 +447,10 @@ document.addEventListener("DOMContentLoaded", () => {
     clear           → Clear display
     
     [ VALID LOCATIONS ]
-    Conamara Chaos, Pwyll Crater, Thera Macula, Thrace Macula, 
-    Cilix Crater, Minos Linea, Rhadamanthys Linea, Castalia Macula,
-    Outpost Zero, Abyssal Gate`,
+    Alpha Base, Beta Point, Delta Hub, Echo Site, Nova Camp,
+    Snow Ridge, Ice Valley, Deep Trench, Frost Peak, Iron Bank,
+    Zero Point, Far Zone, High Pass, Low Camp, Main Base,
+    Red Sector, Blue Sector, Ghost Town, Quiet Zone, Last Stop`,
     
     write: async (t) => { if (!t) return "Syntax: write [text]"; await db.collection("notes").add({ text: t, timestamp: Date.now() }); return "Log saved."; },
     read: async () => {
