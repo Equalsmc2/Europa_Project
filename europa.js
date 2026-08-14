@@ -14,9 +14,15 @@ document.addEventListener("DOMContentLoaded", () => {
     "abyssal gate": { lat: -80, lon: 45 } 
   };
 
-  let planetGroup, planetRadius = 1;
+  let planetGroup;
   let tectonicMesh, faceRegions = []; 
-  const textSprites = {}; 
+  const tectonicPlates = {}; 
+  
+  // Raycaster for Hover effect
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2(-1, -1);
+  let currentHover = null;
+  let activeRegion = null;
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -25,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 3.5;
+    camera.position.z = 4.0;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -49,31 +55,50 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
+    // Update mouse position for hovering
+    container.addEventListener('mousemove', (e) => {
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    });
+    
+    // Clear hover when mouse leaves
+    container.addEventListener('mouseleave', () => {
+        mouse.x = -1;
+        mouse.y = -1;
+    });
+
     const loader = new THREE.GLTFLoader();
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
+      // Perfectly center the 3D model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
       planetModel.position.sub(center);
       
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      planetRadius = size.x / 2;
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
       
+      // USER REQUESTED RADIUS: 1.2
+      const R = 1.2; 
+      
+      // Scale the planet so it fits perfectly inside the 1.2 radius grid
+      const scaleFactor = (R * 0.985) / sphere.radius; 
+      planetModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
       planetGroup.add(planetModel);
 
       // ==========================================
-      // HEX GRID TECTONIC MESH & CENTERED LABELS
+      // SEAMLESS VORONOI TECTONIC PLATES
       // ==========================================
-      const R = planetRadius * 1.02; 
+      const platesGroup = new THREE.Group();
       
+      const locNames = Object.keys(europaLocations);
       const locVectors = {};
-      Object.keys(europaLocations).forEach(name => {
+      
+      locNames.forEach(name => {
         const loc = europaLocations[name];
         const phi = (90 - loc.lat) * (Math.PI / 180);
         const theta = (loc.lon + 180) * (Math.PI / 180);
-        
         locVectors[name] = new THREE.Vector3(
           -(R * Math.sin(phi) * Math.cos(theta)),
           (R * Math.cos(phi)),
@@ -81,31 +106,33 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-      // Track the actual geometric center of each region for text placement
-      const regionCenters = {};
+      // Track data to center the text and draw hover borders
+      const regionCentroids = {};
       const regionCounts = {};
-      Object.keys(europaLocations).forEach(name => {
-        regionCenters[name] = new THREE.Vector3(0,0,0);
-        regionCounts[name] = 0;
+      const regionTriangles = {};
+      locNames.forEach(n => {
+        regionCentroids[n] = new THREE.Vector3(0,0,0);
+        regionCounts[n] = 0;
+        regionTriangles[n] = [];
+        tectonicPlates[n] = {};
       });
 
-      let baseGeo = new THREE.IcosahedronGeometry(R, 8);
-      const posBase = baseGeo.attributes.position;
-      for(let i = 0; i < posBase.count; i++) {
-          let v = new THREE.Vector3().fromBufferAttribute(posBase, i);
-          let noise = Math.sin(v.x * 15) * Math.cos(v.y * 15) * Math.sin(v.z * 15) * (R * 0.015);
-          v.setLength(R + noise);
-          posBase.setXYZ(i, v.x, v.y, v.z);
-      }
+      // 1. Create a clean geometric sphere
+      let baseGeo = new THREE.IcosahedronGeometry(R, 5);
+      
+      // 2. Add faint Hex/Geodesic wireframe overlay
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.1 });
+      const wireMesh = new THREE.LineSegments(new THREE.WireframeGeometry(baseGeo), wireMat);
+      platesGroup.add(wireMesh);
 
+      // 3. Convert to non-indexed geometry to color and shatter plates
       baseGeo = baseGeo.toNonIndexed();
       const pos = baseGeo.attributes.position;
-      const vertexCount = pos.count;
-      
-      const colors = new Float32Array(vertexCount * 3);
-      const transparentBlack = new THREE.Color(0x000000); 
+      const colors = new Float32Array(pos.count * 3);
+      const transparentBlack = new THREE.Color(0x000000); // Invisible by default (No blue tint!)
 
-      for (let i = 0; i < vertexCount; i += 3) {
+      // 4. Shatter the sphere: Assign every triangle to the closest location point
+      for (let i = 0; i < pos.count; i += 3) {
           const vA = new THREE.Vector3().fromBufferAttribute(pos, i);
           const vB = new THREE.Vector3().fromBufferAttribute(pos, i+1);
           const vC = new THREE.Vector3().fromBufferAttribute(pos, i+2);
@@ -114,8 +141,9 @@ document.addEventListener("DOMContentLoaded", () => {
           let closestLoc = null;
           let minDist = Infinity;
 
-          Object.keys(locVectors).forEach(key => {
+          locNames.forEach(key => {
               let dist = triCenter.distanceTo(locVectors[key]);
+              // Math noise creates the jagged, tectonic plate look
               dist += Math.sin(triCenter.x * 12 + locVectors[key].y) * Math.cos(triCenter.y * 12) * (R * 0.15);
               if(dist < minDist) {
                   minDist = dist;
@@ -124,10 +152,9 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           faceRegions.push(closestLoc);
-          
-          // Accumulate face centers to find the true mathematical center of the region highlight
-          regionCenters[closestLoc].add(triCenter);
+          regionCentroids[closestLoc].add(triCenter);
           regionCounts[closestLoc]++;
+          regionTriangles[closestLoc].push(vA, vB, vC);
 
           for(let v = 0; v < 3; v++) {
               colors[(i+v)*3] = transparentBlack.r;
@@ -135,54 +162,62 @@ document.addEventListener("DOMContentLoaded", () => {
               colors[(i+v)*3+2] = transparentBlack.b;
           }
       }
-
       baseGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
+      // 5. Draw the solid plates
       const plateMat = new THREE.MeshBasicMaterial({
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.45,
-          wireframe: false,
-          depthWrite: false
+          vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false
       });
       tectonicMesh = new THREE.Mesh(baseGeo, plateMat);
-      planetGroup.add(tectonicMesh);
+      platesGroup.add(tectonicMesh);
 
-      // Add Hex Grid wireframe over the whole sphere
-      const edges = new THREE.EdgesGeometry(baseGeo, 10);
-      const wireMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15 });
-      const wireMesh = new THREE.LineSegments(edges, wireMat);
-      planetGroup.add(wireMesh);
-
-      // Place Text Sprites at the TRUE center of each highlight region
-      Object.keys(locVectors).forEach(name => {
+      // 6. Generate the Hover Borders and Text Labels
+      locNames.forEach(name => {
+        // Average the face centers to find the TRUE center of the jagged plate
         if (regionCounts[name] > 0) {
-            regionCenters[name].divideScalar(regionCounts[name]); // Calculate true average center
-            regionCenters[name].setLength(R * 1.03);
+            regionCentroids[name].divideScalar(regionCounts[name]);
+            regionCentroids[name].setLength(R * 1.05); // Push text up so it hovers
         }
 
+        // --- THE DOTTED/DASHED HOVER BORDER ---
+        const regionGeo = new THREE.BufferGeometry().setFromPoints(regionTriangles[name]);
+        const regionEdges = new THREE.EdgesGeometry(regionGeo, 5);
+        const dashMat = new THREE.LineDashedMaterial({ 
+            color: 0xccff00, 
+            dashSize: 0.03, 
+            gapSize: 0.03, 
+            transparent: true, 
+            opacity: 0.9 
+        });
+        const hoverOutline = new THREE.LineSegments(regionEdges, dashMat);
+        hoverOutline.computeLineDistances(); // Crucial to make dashed lines work
+        hoverOutline.visible = false; // Hidden until hovered
+        platesGroup.add(hoverOutline);
+        tectonicPlates[name].hoverOutline = hoverOutline;
+
+        // --- THE TEXT SPRITE ---
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ccff00'; 
-        ctx.font = "Bold 34px 'JetBrains Mono', monospace";
+        ctx.fillStyle = '#ffffff';
+        ctx.font = "Bold 36px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(name.toUpperCase(), 256, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ 
-          map: texture, color: 0xccff00, transparent: true, opacity: 0 
+          map: texture, color: 0x00f0ff, transparent: true, opacity: 0.6 // Dim cyan by default
         });
-        
         const sprite = new THREE.Sprite(spriteMat);
         sprite.scale.set(0.6, 0.15, 1);
-        sprite.position.copy(regionCenters[name]); 
-        
-        textSprites[name] = { sprite: sprite };
-        planetGroup.add(sprite);
+        sprite.position.copy(regionCentroids[name]); 
+        platesGroup.add(sprite);
+        tectonicPlates[name].sprite = sprite;
       });
+
+      planetGroup.add(platesGroup);
 
     }, undefined, (error) => {
       console.warn("Europa.glb load error.");
@@ -191,6 +226,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
+      
+      // ==========================================
+      // HOVER LOGIC (RAYCASTER)
+      // ==========================================
+      if (tectonicMesh) {
+          raycaster.setFromCamera(mouse, camera);
+          const intersects = raycaster.intersectObject(tectonicMesh);
+          
+          let newHover = null;
+          if(intersects.length > 0) {
+              const faceIdx = Math.floor(intersects[0].faceIndex);
+              newHover = faceRegions[faceIdx];
+          }
+
+          if(newHover !== currentHover) {
+              // Deactivate old hover
+              if(currentHover && tectonicPlates[currentHover]) {
+                  tectonicPlates[currentHover].hoverOutline.visible = false;
+                  // Only dim text if it's not the currently active admin region
+                  if(currentHover !== activeRegion) {
+                      tectonicPlates[currentHover].sprite.material.color.setHex(0x00f0ff);
+                      tectonicPlates[currentHover].sprite.material.opacity = 0.6;
+                  }
+              }
+              // Activate new hover
+              if(newHover && tectonicPlates[newHover]) {
+                  tectonicPlates[newHover].hoverOutline.visible = true;
+                  tectonicPlates[newHover].sprite.material.color.setHex(0xccff00);
+                  tectonicPlates[newHover].sprite.material.opacity = 1.0;
+              }
+              currentHover = newHover;
+          }
+      }
+
       renderer.render(scene, camera);
     };
     animate();
@@ -205,20 +274,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Highlight active plate and center-aligned text
+  // Highlight active plate (Solid Green) when admin command executes
   window.updatePlanetMarker = (locationName) => {
     if(!locationName || !tectonicMesh) return;
     const cleanName = locationName.toLowerCase();
-    const loc = europaLocations[cleanName];
+    activeRegion = cleanName; // Save globally so hover logic respects it
     
-    // Hide all text sprites by default
-    Object.keys(textSprites).forEach(key => {
-      textSprites[key].sprite.material.opacity = 0;
+    // Reset all text to dim Cyan
+    Object.keys(tectonicPlates).forEach(key => {
+      if(key !== currentHover) {
+          tectonicPlates[key].sprite.material.color.setHex(0x00f0ff);
+          tectonicPlates[key].sprite.material.opacity = 0.6;
+      }
     });
 
-    if(!loc) return;
-
-    const activeColor = new THREE.Color(0xccff00); 
+    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.7); 
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
@@ -235,9 +305,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     tectonicMesh.geometry.attributes.color.needsUpdate = true;
 
-    // Show centered text sprite for active region
-    if(textSprites[cleanName]) {
-       textSprites[cleanName].sprite.material.opacity = 1.0;
+    if(tectonicPlates[cleanName]) {
+       tectonicPlates[cleanName].sprite.material.color.setHex(0xccff00);
+       tectonicPlates[cleanName].sprite.material.opacity = 1.0;
     }
   };
 
