@@ -15,12 +15,12 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // THREE.JS - SOLID GLOBE + LAT/LONG GRID & SPIN
+  // THREE.JS - DEEP STONE / CRYO TACTICAL GLOBE
   // ==========================================
   let planetGroup, marker;
   let isDragging = false;
   let previousMousePosition = { x: 0, y: 0 };
-  const planetRadius = 1.5;
+  const planetRadius = 1.4;
 
   const initEuropa3D = () => {
     const container = document.getElementById('europa-3d');
@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 4.5;
+    camera.position.z = 4.2;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -37,30 +37,30 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // 1. Solid Planet Core
+    // 1. Solid Planet Core (Deep Icy Blue)
     const sphereGeo = new THREE.SphereGeometry(planetRadius, 32, 32);
     const sphereMat = new THREE.MeshBasicMaterial({ 
-      color: 0x080c14, 
+      color: 0x070c17, 
       transparent: true, 
-      opacity: 0.9 
+      opacity: 0.95 
     });
     const globe = new THREE.Mesh(sphereGeo, sphereMat);
     planetGroup.add(globe);
 
-    // 2. Lat/Long Tactical Grid Wireframe Overlay
-    const wireGeo = new THREE.SphereGeometry(planetRadius * 1.002, 16, 12);
+    // 2. Lat/Long Tactical Grid Wireframe (Icy Cyan)
+    const wireGeo = new THREE.SphereGeometry(planetRadius * 1.005, 18, 14);
     const wireMat = new THREE.MeshBasicMaterial({ 
-      color: 0x00f0ff, 
+      color: 0x67e8f9, 
       wireframe: true, 
       transparent: true, 
-      opacity: 0.25 
+      opacity: 0.3 
     });
     const wireGrid = new THREE.Mesh(wireGeo, wireMat);
     planetGroup.add(wireGrid);
 
-    // 3. Location Beacon Marker
-    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xff3366 }); 
+    // 3. Location Beacon Marker (Warning Red)
+    const markerGeo = new THREE.SphereGeometry(0.05, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e }); 
     marker = new THREE.Mesh(markerGeo, markerMat);
     marker.visible = false;
     planetGroup.add(marker);
@@ -78,37 +78,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       planetGroup.rotation.y += deltaX * 0.008;
       planetGroup.rotation.x += deltaY * 0.008;
-
       previousMousePosition = { x: e.clientX, y: e.clientY };
     });
 
     window.addEventListener('mouseup', () => { isDragging = false; });
-
-    // Touch support for mobile/tablets
-    container.addEventListener('touchstart', (e) => {
-      isDragging = true;
-      previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isDragging) return;
-      const deltaX = e.touches[0].clientX - previousMousePosition.x;
-      const deltaY = e.touches[0].clientY - previousMousePosition.y;
-
-      planetGroup.rotation.y += deltaX * 0.008;
-      planetGroup.rotation.x += deltaY * 0.008;
-
-      previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    });
-
-    window.addEventListener('touchend', () => { isDragging = false; });
+    container.addEventListener('mouseleave', () => { isDragging = false; });
 
     // Render loop
     const animate = () => {
       requestAnimationFrame(animate);
-      // Gentle idle spin if user is not actively dragging it
       if (!isDragging) {
-        planetGroup.rotation.y += 0.001;
+        planetGroup.rotation.y += 0.002; // Gentle orbit
       }
       renderer.render(scene, camera);
     };
@@ -124,18 +104,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEuropa3D();
 
-  // Function to place the red marker pin accurately based on coordinates
   window.updatePlanetMarker = (locationName) => {
     if(!locationName || !marker) return;
-    
     const loc = europaLocations[locationName.toLowerCase()];
     if(!loc) { 
       marker.visible = false; 
       return; 
     }
-
     marker.visible = true;
-    
     const phi = (90 - loc.lat) * (Math.PI / 180);
     const theta = (loc.lon + 180) * (Math.PI / 180);
     const R = planetRadius * 1.02; 
@@ -146,20 +122,13 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // UI & TOOLS
+  // UI & TOOLS (No longer hidden in tray)
   // ==========================================
-  const tray = document.getElementById("side-tray");
-  const toggleBtn = document.getElementById("tools-toggle");
-  const closeBtn = document.getElementById("tray-close");
-
-  if (toggleBtn) toggleBtn.addEventListener("click", () => tray.classList.add("open"));
-  if (closeBtn) closeBtn.addEventListener("click", () => tray.classList.remove("open"));
-
   window.roll = (sides) => {
     const display = document.getElementById("dice-display");
     const result = Math.floor(Math.random() * sides) + 1;
     display.textContent = "CALCULATING...";
-    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #00f0ff">${result}</span>`; }, 150);
+    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #67e8f9">${result}</span>`; }, 150);
   };
 
   let calcExp = "";
@@ -232,7 +201,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) { log(`[FATAL ERROR] DB Connection lost: ${err.message}`, "error"); }
   };
 
-  // Real-time listener for location updates
   db.collection("meta").doc("location").onSnapshot((doc) => {
     const locFooter = document.getElementById("europa-location-text");
     if (doc.exists) {
@@ -347,7 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadData();
 
-  // Chat Sync
   const chatBox = document.getElementById("chat-messages");
   const chatInput = document.getElementById("chat-input");
   if (chatBox && chatInput) {
