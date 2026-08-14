@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 3.5;
+    camera.position.z = 4.0;
     
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -53,11 +53,11 @@ document.addEventListener("DOMContentLoaded", () => {
     controls.minDistance = 1.5;
     controls.maxDistance = 10;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.3;
+    controls.autoRotateSpeed = 0.2;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xccffff, 1.2);
     dirLight.position.set(5, 5, 5);
     scene.add(dirLight);
 
@@ -65,15 +65,15 @@ document.addEventListener("DOMContentLoaded", () => {
     scene.add(planetGroup);
 
     // Ambient Cryo Dust Particles
-    const particleCount = 1000;
+    const particleCount = 1200;
     const particleGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
-        particlePos[i] = (Math.random() - 0.5) * 6;
+        particlePos[i] = (Math.random() - 0.5) * 8;
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
     const particleMat = new THREE.PointsMaterial({
-        color: 0x00f0ff, size: 0.015, transparent: true, opacity: 0.25
+        color: 0x00f0ff, size: 0.015, transparent: true, opacity: 0.3
     });
     const particles = new THREE.Points(particleGeo, particleMat);
     planetGroup.add(particles);
@@ -87,22 +87,24 @@ document.addEventListener("DOMContentLoaded", () => {
     loader.load('europa.glb', (gltf) => {
       const planetModel = gltf.scene;
 
-      // Center model geometry
       const box = new THREE.Box3().setFromObject(planetModel);
       const center = box.getCenter(new THREE.Vector3());
-      planetModel.position.sub(center);
       
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const planetRadius = size.x / 2;
+      planetModel.position.x = -center.x;
+      planetModel.position.y = -center.y;
+      planetModel.position.z = -center.z;
       
-      planetGroup.add(planetModel);
-
-      // ==========================================
-      // DYNAMICALLY SIZED TECTONIC MESH (R = 1.02x)
-      // ==========================================
+      const modelWrapper = new THREE.Group();
+      modelWrapper.add(planetModel);
+      
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      
+      // Strict R = 1.02 multiplier based on actual loaded mesh
+      const planetRadius = sphere.radius;
       const R = planetRadius * 1.02; 
       
+      planetGroup.add(modelWrapper);
+
       const platesGroup = new THREE.Group();
       const locNames = Object.keys(europaLocations);
       const locVectors = {};
@@ -179,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
       locNames.forEach(name => {
         if (regionCounts[name] > 0) {
             regionCentroids[name].divideScalar(regionCounts[name]);
-            regionCentroids[name].setLength(R * 1.035); 
+            regionCentroids[name].setLength(R * 1.05); 
         }
 
         const regionGeo = new THREE.BufferGeometry().setFromPoints(regionTriangles[name]);
@@ -198,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
-        ctx.font = "Bold 32px 'JetBrains Mono', monospace";
+        ctx.font = "Bold 36px 'JetBrains Mono', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(name.toUpperCase(), 256, 64);
@@ -208,7 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
           map: texture, color: 0x00f0ff, transparent: true, opacity: 0.6 
         });
         const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(0.45, 0.11, 1);
+        sprite.scale.set(0.6, 0.15, 1);
         sprite.position.copy(regionCentroids[name]); 
         platesGroup.add(sprite);
         tectonicPlates[name].sprite = sprite;
@@ -224,7 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
       requestAnimationFrame(animate);
       controls.update();
       
-      particles.rotation.y += 0.0004;
+      particles.rotation.y += 0.0005;
+      particles.rotation.x += 0.0002;
 
       if (tectonicMesh) {
           raycaster.setFromCamera(mouse, camera);
@@ -279,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.6); 
+    const activeColor = new THREE.Color(0xccff00).multiplyScalar(0.5); 
     const transparentBlack = new THREE.Color(0x000000); 
     const colors = tectonicMesh.geometry.attributes.color.array;
 
@@ -303,41 +306,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // TOOLS
-  // ==========================================
-  window.roll = (sides) => {
-    const display = document.getElementById("dice-display");
-    const result = Math.floor(Math.random() * sides) + 1;
-    display.textContent = "CALCULATING...";
-    setTimeout(() => { display.innerHTML = `d${sides}: <span style="color: #00f0ff">${result}</span>`; }, 150);
-  };
-
-  let calcExp = "";
-  window.calc = (val) => {
-    const screen = document.getElementById("calc-screen");
-    if (val === "C") {
-      calcExp = ""; screen.textContent = "0";
-    } else if (val === "=") {
-      try {
-        const result = new Function('return ' + calcExp)();
-        if (!isFinite(result)) throw new Error("Math Error");
-        const finalResult = Number.isInteger(result) ? result : parseFloat(result.toFixed(4));
-        screen.textContent = finalResult;
-        calcExp = finalResult.toString();
-      } catch (e) {
-        screen.textContent = "ERR"; calcExp = "";
-      }
-    } else {
-      if (calcExp === "" && ["*", "/", "+"].includes(val)) return;
-      calcExp += val; screen.textContent = calcExp;
-    }
-  };
-
-  // ==========================================
   // FIREBASE & DECRYPT LOGIC
   // ==========================================
   const config = {
-    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
+    apiKey: "YOUR_API_KEY", 
     projectId: "europa-4b0d3" 
   };
   
