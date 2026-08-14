@@ -3,138 +3,121 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>EUROPA PROJECT // CRYO ARCHIVE</title>
+  <title>CRYO ARCHIVE // LANCER OS</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   
-  <!-- BUMPED VERSION TO ?v=17 TO CLEAR CACHE -->
+  <!-- BUMPED VERSION TO 17 TO BYPASS CACHE -->
   <link rel="stylesheet" href="europa.css?v=17"/>
 
+  <!-- Three.js and OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
   
-  <!-- IMMERSIVE FULL SCREEN BACKGROUND -->
+  <!-- CRT Scanline Overlay -->
+  <div class="scanlines"></div>
+
+  <!-- Full Screen 3D Background -->
   <div id="europa-3d"></div>
 
-  <!-- FLOATING LIQUID GLASS UI -->
-  <div id="ui-overlay">
+  <!-- Floating Glass HUD -->
+  <div id="hud-interface">
     
-    <header id="global-header">
-      <div class="brand-block">
-        <h1>EUROPA PROJECT</h1>
-        <div class="subtitle">
-          <span class="dot"></span> SUB-ZERO ARCHIVE // TELEMETRY LINK
-        </div>
-      </div>
-      <div class="header-controls">
-        <span id="system-clock">--:--:--</span>
-        <button id="tools-toggle" class="glass-btn">SYS_TOOLS</button>
-      </div>
-    </header>
-
-    <div id="main-panels">
-      
-      <!-- LEFT STACK: TERMINAL -->
-      <aside class="glass-panel tall-panel" id="terminal-wrapper">
-        <div class="panel-header">
-          <h3>MAIN TERMINAL</h3>
-          <span class="status-indicator"></span>
-        </div>
+    <!-- Left Glass Panel: Terminal & Comms -->
+    <div id="left-stack" class="glass-panel">
+      <div id="terminal-wrapper">
+        <header>
+          <div class="brand">
+            <h2>CRYO ARCHIVE</h2>
+            <small>NHP OMNINET LINK // SECTOR 4</small>
+          </div>
+          <div id="system-clock">--:--:--</div>
+        </header>
         
         <div id="terminal-housing">
           <div id="terminal">
-            <div class="line system">Establishing secure cryo-link...</div>
-            <div class="line system">Initializing sub-zero matrix...</div>
+            <div class="line system">Establishing secure Omninet connection...</div>
+            <div class="line system">Initializing dark-matrix terminal interface...</div>
           </div>
         </div>
         
         <div class="input-line">
-          <span class="prompt">CMD></span>
+          <span class="prompt">NHP></span>
           <input id="cli" type="text" autocomplete="off" placeholder="AWAITING INPUT..." autofocus />
         </div>
-      </aside>
+      </div>
 
-      <!-- RIGHT STACK: COMMS & TELEMETRY -->
-      <aside class="right-stack">
-        <div class="glass-panel" id="telemetry-panel">
-          <div class="panel-header">
-            <h3>SECTOR TELEMETRY</h3>
-            <span class="status-indicator active-pulse"></span>
-          </div>
-          <div class="telemetry-readout">
-            <span id="europa-location-text">LOC_TRACK: OFFLINE</span>
-          </div>
+      <div id="chat-wrapper">
+        <header>
+          <h3>LOCAL COMMS</h3>
+          <span class="status-pulse"></span>
+        </header>
+        <div id="chat-messages"></div>
+        <div class="chat-input-area">
+          <span class="prompt">TX></span>
+          <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
         </div>
-
-        <div class="glass-panel tall-panel" id="chat-wrapper">
-          <div class="panel-header">
-            <h3>FIRETEAM COMMS</h3>
-          </div>
-          <div id="chat-messages"></div>
-          <div class="input-line">
-            <span class="prompt">TX></span>
-            <input id="chat-input" type="text" placeholder="BROADCAST..." autocomplete="off" />
-          </div>
-        </div>
-      </aside>
-
+      </div>
     </div>
+
+    <!-- Right Glass Panel: Telemetry & Tools -->
+    <div id="right-stack" class="glass-panel">
+      <div class="telemetry-header">
+        <h3>EUROPA TOPOLOGY</h3>
+        <span id="europa-location-text">LOC_TRACK: OFFLINE</span>
+      </div>
+
+      <hr class="divider">
+
+      <div class="tool-section">
+        <h4>MECHANICAL RESOLUTION</h4>
+        <div id="dice-display">STANDBY</div>
+        <div class="dice-grid">
+          <button onclick="roll(4)">d4</button>
+          <button onclick="roll(6)">d6</button>
+          <button onclick="roll(8)">d8</button>
+          <button onclick="roll(10)">d10</button>
+          <button onclick="roll(12)">d12</button>
+          <button onclick="roll(20)">d20</button>
+          <button onclick="roll(100)">d100</button>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="tool-section">
+        <h4>SUBSYSTEM COMPUTE</h4>
+        <div id="calc-screen">0</div>
+        <div class="calc-grid">
+          <button onclick="calc('7')">7</button>
+          <button onclick="calc('8')">8</button>
+          <button onclick="calc('9')">9</button>
+          <button class="op" onclick="calc('/')">÷</button>
+          
+          <button onclick="calc('4')">4</button>
+          <button onclick="calc('5')">5</button>
+          <button onclick="calc('6')">6</button>
+          <button class="op" onclick="calc('*')">×</button>
+          
+          <button onclick="calc('1')">1</button>
+          <button onclick="calc('2')">2</button>
+          <button onclick="calc('3')">3</button>
+          <button class="op" onclick="calc('-')">-</button>
+          
+          <button class="clear" onclick="calc('C')">C</button>
+          <button onclick="calc('0')">0</button>
+          <button class="equal" onclick="calc('=')">=</button>
+          <button class="op" onclick="calc('+')">+</button>
+        </div>
+      </div>
+    </div>
+
   </div>
-
-  <!-- SLIDING SIDE TRAY (TOOLS) -->
-  <aside id="side-tray" class="glass-panel">
-    <div class="tray-header">
-      <h3>DIAGNOSTICS</h3>
-      <button id="tray-close" class="glass-btn icon-btn">✖</button>
-    </div>
-
-    <div class="tool-section">
-      <h4>RESOLUTION MATRIX</h4>
-      <div id="dice-display">STANDBY</div>
-      <div class="dice-grid">
-        <button onclick="roll(4)">d4</button>
-        <button onclick="roll(6)">d6</button>
-        <button onclick="roll(8)">d8</button>
-        <button onclick="roll(10)">d10</button>
-        <button onclick="roll(12)">d12</button>
-        <button onclick="roll(20)">d20</button>
-        <button onclick="roll(100)">d100</button>
-      </div>
-    </div>
-
-    <hr class="divider">
-
-    <div class="tool-section">
-      <h4>COMPUTE</h4>
-      <div id="calc-screen">0</div>
-      <div class="calc-grid">
-        <button onclick="calc('7')">7</button>
-        <button onclick="calc('8')">8</button>
-        <button onclick="calc('9')">9</button>
-        <button class="op" onclick="calc('/')">÷</button>
-        
-        <button onclick="calc('4')">4</button>
-        <button onclick="calc('5')">5</button>
-        <button onclick="calc('6')">6</button>
-        <button class="op" onclick="calc('*')">×</button>
-        
-        <button onclick="calc('1')">1</button>
-        <button onclick="calc('2')">2</button>
-        <button onclick="calc('3')">3</button>
-        <button class="op" onclick="calc('-')">-</button>
-        
-        <button class="clear" onclick="calc('C')">C</button>
-        <button onclick="calc('0')">0</button>
-        <button class="equal" onclick="calc('=')">=</button>
-        <button class="op" onclick="calc('+')">+</button>
-      </div>
-    </div>
-  </aside>
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
