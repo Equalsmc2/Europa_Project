@@ -64,19 +64,46 @@ document.addEventListener("DOMContentLoaded", () => {
     planetGroup = new THREE.Group();
     scene.add(planetGroup);
 
-    // Ambient Cryo Dust Particles
-    const particleCount = 1200;
+    // ==========================================
+    // Ambient Cryo Dust Particles (Upgraded to Soft Glowing Spheres)
+    // ==========================================
+    const particleCount = 1500;
     const particleGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
-        particlePos[i] = (Math.random() - 0.5) * 8;
+        particlePos[i] = (Math.random() - 0.5) * 10;
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+
+    // Create a procedural soft-circle texture to eliminate square blocks
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.3, 'rgba(0,229,255,0.8)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+    
+    const particleTexture = new THREE.CanvasTexture(canvas);
+
     const particleMat = new THREE.PointsMaterial({
-        color: 0x00f0ff, size: 0.015, transparent: true, opacity: 0.3
+        color: 0xffffff, 
+        size: 0.03, 
+        map: particleTexture,
+        transparent: true, 
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
     });
     const particles = new THREE.Points(particleGeo, particleMat);
     planetGroup.add(particles);
+
+    // ==========================================
+    // Core 3D Logic Continues
+    // ==========================================
 
     window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
