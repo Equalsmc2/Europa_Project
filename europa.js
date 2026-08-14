@@ -324,7 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FIREBASE & TERMINAL LOGIC
   // ==========================================
   const config = {
-    apiKey: "YOUR_API_KEY", 
+    apiKey: "AIzaSyB2nuuvLSrXQiHPRSWq-TwcTKEQ_Zedbz0",
     projectId: "europa-4b0d3" 
   };
   
