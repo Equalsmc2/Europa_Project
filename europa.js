@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // 20 BASIC ENGLISH LOCATIONS
   const europaLocations = {
-    "alpha base": { lat: 80, lon: 0 },
+    "abyssal gate": { lat: 80, lon: 0 },
     "beta point": { lat: -80, lon: 0 },
     "delta hub": { lat: 45, lon: 45 },
     "echo site": { lat: 45, lon: 135 },
@@ -427,7 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clear           → Clear display
     
     [ VALID LOCATIONS ]
-    Alpha Base, Beta Point, Delta Hub, Echo Site, Nova Camp,
+    Abyssal Gate, Beta Point, Delta Hub, Echo Site, Nova Camp,
     Snow Ridge, Ice Valley, Deep Trench, Frost Peak, Iron Bank,
     Zero Point, Far Zone, High Pass, Low Camp, Main Base,
     Red Sector, Blue Sector, Ghost Town, Quiet Zone, Last Stop`,
